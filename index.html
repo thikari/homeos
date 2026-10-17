@@ -572,7 +572,7 @@ function render(data) {
   if (!deps.length) ab.innerHTML = '<span class="leer">Keine Abfahrten in der nächsten Stunde</span>';
   for (const d of deps) {
     const cls = d.left <= 3 ? "soon" : (d.time !== d.plan ? "late" : "");
-    ab.insertAdjacentHTML("beforeend", `<div class="ab"><span class="ln" data-type="${d.type}">${d.line}</span><span class="dir">${d.dir} <small>· ${d.stop}</small></span><span class="cd ${cls}">${d.left <= 0 ? "jetzt" : d.left + " min"}</span></div>`);
+    ab.insertAdjacentHTML("beforeend", `<div class="ab"><span class="ln" data-type="${d.type}">${d.line}</span><span class="dir">→ ${richtung(d.dir)} <small>· ab ${d.stop}</small></span><span class="cd ${cls}">${d.left <= 0 ? "jetzt" : d.left + " min"}</span></div>`);
   }
 
   // Kosten in Euro
