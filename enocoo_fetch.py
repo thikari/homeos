@@ -171,6 +171,12 @@ def build(raw, now, events, weather=None, departures=None):
     strom_days = daily["strom_kwh"]
     allstrom = raw["m_prev"][0] + strom_days
     week = allstrom[-8:-1]
+    first = today.replace(day=1); prev_first = (first - dt.timedelta(days=1)).replace(day=1)
+    def dated(prev_vals, cur_vals):
+        out = [{"d": (prev_first + dt.timedelta(days=i)).isoformat(), "v": v} for i, v in enumerate(prev_vals)]
+        out += [{"d": (first + dt.timedelta(days=i)).isoformat(), "v": v} for i, v in enumerate(cur_vals)]
+        return out[-14:]
+    daily_out = {"strom_kwh": dated(raw["m_prev"][0], strom_days), "kaltwasser_m3": dated([], daily["kaltwasser_m3"])}
     ampel = raw["ampel"]
     return {
         "updated": now.isoformat(timespec="minutes"),
@@ -183,6 +189,7 @@ def build(raw, now, events, weather=None, departures=None):
         "price_profile_ct": price_profile,
         "price_24h": price_24h,
         "month": month,
+        "daily": daily_out,
         "today": {"strom_kwh": round(strom_days[-1], 2) if strom_days else None, "kaltwasser_m3": round(daily["kaltwasser_m3"][-1], 3) if daily["kaltwasser_m3"] else None},
         "yesterday": {"strom_kwh": round(allstrom[-2], 2) if len(allstrom) >= 2 else None, "kaltwasser_m3": round(daily["kaltwasser_m3"][-2], 3) if len(daily["kaltwasser_m3"]) >= 2 else None},
         "week_avg_strom_kwh": round(sum(week) / len(week), 2) if week else None,
