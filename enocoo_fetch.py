@@ -58,17 +58,21 @@ def fetch_departures(stops=VRN_STOPS, limit=8):
     return out[:limit]
 
 def parse_costs(html):
-    """Kostentabelle 'Haushaltsstrom' der Portal-Startseite: Periode | kWh | Kosten € | Ersparnis € | Vergleich %."""
-    txt = re.sub(r"<[^>]+>", " ", html); txt = re.sub(r"\s+", " ", txt)
+    """Kostentabelle 'Haushaltsstrom' der Portal-Startseite: Periode | kWh | Kosten € | Ersparnis € | Vergleich %.
+    Nur die Stromtabelle hat drei Zahlen vor dem Prozentwert, deshalb reicht das Muster ohne Segmentierung."""
+    txt = re.sub(r"<[^>]+>", " ", html).replace("&nbsp;", " ").replace("\xa0", " ")
+    txt = re.sub(r"\s+", " ", txt)
     num = lambda v: float(v.replace(".", "").replace(",", "."))
-    def row(label):
-        m = re.search(re.escape(label) + r":\s*([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d]+)\s*%", txt)
-        return {"kwh": num(m[1]), "eur": num(m[2]), "saved_eur": num(m[3]), "vs_avg_pct": int(m[4])} if m else None
-    seg = txt.split("Haushaltsstrom", 1)[-1].split("Heizung", 1)[0]
-    txt = seg
-    mon = re.search(r"\b(Jan|Feb|Mär|Apr|Mai|Jun|Jul|Aug|Sep|Okt|Nov|Dez)\.?:", txt)
-    return {"today": row("Heute"), "month": row(mon[0].rstrip(":")) if mon else None,
-            "year": row(re.search(r"\b(20\d\d):", txt)[1]) if re.search(r"\b(20\d\d):", txt) else None}
+    pat = r"(Heute|Jan|Feb|Mär|Apr|Mai|Jun|Jul|Aug|Sep|Okt|Nov|Dez|20\d\d)\.?\s*:\s*([\d.]+,\d+)\s+([\d.]+,\d+)\s+([\d.]+,\d+)\s+(\d+)\s*%"
+    rows = {}
+    for m in re.finditer(pat, txt):
+        key = "today" if m[1] == "Heute" else ("year" if m[1].startswith("20") else "month")
+        rows.setdefault(key, {"kwh": num(m[2]), "eur": num(m[3]), "saved_eur": num(m[4]), "vs_avg_pct": int(m[5])})
+    out = {"today": rows.get("today"), "month": rows.get("month"), "year": rows.get("year")}
+    if not rows:
+        i = txt.find("Heute")
+        out["debug"] = txt[max(0, i - 80): i + 220] if i >= 0 else txt[:300]
+    return out
 
 def session():
     cj = http.cookiejar.CookieJar()
