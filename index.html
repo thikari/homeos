@@ -520,9 +520,12 @@ function render(data) {
   // Datenstand: älter als 20 Minuten → Hinweis, Abfahrten ausblenden
   const alterMin = data.updated ? Math.round((now - new Date(data.updated)) / 60000) : null;
   const stale = document.getElementById("stale");
+  const errs = data.errors && Object.keys(data.errors).length ? Object.entries(data.errors).map(([k, v]) => k + ": " + v).join(" · ") : "";
   if (alterMin == null) { stale.hidden = false; stale.textContent = "Keine Daten – Fetcher läuft nicht"; }
+  else if (errs) { stale.hidden = false; stale.textContent = "Fehler beim Abruf – " + errs; }
   else if (alterMin > 20) { stale.hidden = false; stale.textContent = `Keine neuen Daten seit ${new Date(data.updated).toLocaleString("de-DE", { weekday: "short", hour: "2-digit", minute: "2-digit" })} (${alterMin < 120 ? alterMin + " Minuten" : Math.round(alterMin / 60) + " Stunden"}) – Preis und Abfahrten sind veraltet`; document.getElementById("abfahrten").innerHTML = '<span class="leer">Abfahrten veraltet</span>'; }
   else stale.hidden = true;
+  if (alterMin != null && alterMin <= 20 && errs && !/portal/.test(errs)) document.getElementById("abfahrten").hidden = false;
 
   // Footer
   const L = data.live || {};

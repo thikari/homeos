@@ -81,16 +81,16 @@ def login(op):
     user, pw = os.environ.get("ENOCOO_USER"), os.environ.get("ENOCOO_PASS")
     if not user or not pw:
         sys.exit("ENOCOO_USER / ENOCOO_PASS fehlen")
-    op.open(BASE + "/")  # Session-Cookie holen
+    op.open(BASE + "/", timeout=30)  # Session-Cookie holen
     data = urllib.parse.urlencode({"user": user, "passwort": pw, "idProject": "1", "idLanguage": "1"}).encode()
-    r = op.open(BASE + "/SigninForm.php?mode=ok", data=data)
+    r = op.open(BASE + "/SigninForm.php?mode=ok", data=data, timeout=30)
     html = r.read().decode("utf-8", "ignore")
-    if "Abgemeldet" in html or "Anmeldung" in html and "Benutzername" in html:
-        sys.exit("Login fehlgeschlagen")
+    if "Abgemeldet" in html or ("Anmeldung" in html and "Benutzername" in html):
+        sys.exit("Login fehlgeschlagen (Portal zeigt wieder die Anmeldeseite) – Benutzername/Passwort prüfen")
 
 def get_json(op, path, **params):
     params["cache"] = int(dt.datetime.now().timestamp() * 1000)
-    r = op.open(BASE + path + "?" + urllib.parse.urlencode(params))
+    r = op.open(BASE + path + "?" + urllib.parse.urlencode(params), timeout=30)
     txt = r.read().decode("utf-8", "ignore").strip()
     if "Abgemeldet" in txt or txt.startswith("<"):
         raise RuntimeError("Session abgelaufen bei " + path)
@@ -199,20 +199,53 @@ def main():
     ap.add_argument("--now", help="Zeitpunkt der Rohdaten, z. B. 2026-10-16T20:00 (zum Testen)")
     a = ap.parse_args()
     now = dt.datetime.fromisoformat(a.now) if a.now else dt.datetime.now(); today = now.date()
-    if a.raw:
-        raw = json.load(open(a.raw, encoding="utf-8"))
-    else:
-        op = session(); login(op); raw = fetch_raw(op, today)
-    events = read_ics(a.ics)
+    errors = {}
+
+    raw = None
+    try:
+        if a.raw:
+            raw = json.load(open(a.raw, encoding="utf-8"))
+        else:
+            op = session(); login(op); raw = fetch_raw(op, today)
+    except SystemExit as e:
+        errors["portal"] = str(e)
+    except Exception as e:
+        errors["portal"] = f"{type(e).__name__}: {e}"[:300]
+
+    events = []
+    try:
+        events = read_ics(a.ics)
+    except Exception as e:
+        errors["kalender"] = f"{type(e).__name__}: {e}"[:300]
     if a.events:
-        events += json.load(open(a.events, encoding="utf-8"))
+        try:
+            events += json.load(open(a.events, encoding="utf-8"))
+        except Exception as e:
+            errors["termine"] = f"{type(e).__name__}: {e}"[:300]
     events = sorted([e for e in events if e["date"] >= today.isoformat()], key=lambda e: (e["date"], e.get("time") or ""))[:12]
-    weather = json.load(open(a.weather, encoding="utf-8")) if a.weather else fetch_weather()
-    departures = json.load(open(a.departures, encoding="utf-8")) if a.departures else fetch_departures()
-    out = build(raw, now, events, weather, departures)
+
+    try:
+        weather = json.load(open(a.weather, encoding="utf-8")) if a.weather else fetch_weather()
+        if weather is None:
+            errors["wetter"] = "Open-Meteo nicht erreichbar"
+    except Exception as e:
+        weather = None; errors["wetter"] = f"{type(e).__name__}: {e}"[:300]
+
+    try:
+        departures = json.load(open(a.departures, encoding="utf-8")) if a.departures else fetch_departures()
+    except Exception as e:
+        departures = []; errors["vrn"] = f"{type(e).__name__}: {e}"[:300]
+
+    if raw:
+        out = build(raw, now, events, weather, departures)
+    else:
+        out = {"updated": now.isoformat(timespec="minutes"), "data_until": None, "live": {}, "price_profile_ct": {}, "price_24h": [],
+               "month": None, "today": {}, "yesterday": {}, "week_avg_strom_kwh": None, "pv_today_kwh": None, "year_strom_kwh": None,
+               "events": events, "weather": weather, "cost": None, "departures": departures}
+    out["errors"] = errors
     json.dump(out, open(a.out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-    l = out["live"]
-    print(f"{a.out}: {l['power_w']} W, {l['price_ct']} ct, Ampel {l['ampel']}, PV {l['pv_kw']} kW, Monat Strom {out['month']['strom_kwh']} kWh")
+    l = out.get("live") or {}
+    print(f"{a.out}: {l.get('power_w')} W, {l.get('price_ct')} ct, Ampel {l.get('ampel')}, Fehler: {errors or 'keine'}")
 
 if __name__ == "__main__":
     main()
