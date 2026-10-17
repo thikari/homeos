@@ -136,8 +136,14 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .stale[hidden] { display: none !important; }
 footer { display: flex; justify-content: space-between; gap: 1em; flex-wrap: wrap; color: var(--muted); font-size: .72em; font-family: var(--mono); }
 
+@media (max-height: 760px) {
+  body { height: auto; }
+  .tafel { height: auto; }
+  .unten { overflow: visible; }
+}
 @media (max-width: 900px) {
   body { height: auto; }
+  .unten { overflow: visible; }
   .kopfrechts { flex-direction: column; gap: 1em; align-items: flex-start; }
   .tafel { height: auto; }
   .unten { grid-template-columns: 1fr; }
