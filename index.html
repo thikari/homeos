@@ -108,7 +108,7 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .striplabels span:nth-child(6n+1) { visibility: visible; }
 
 /* bottom columns */
-.unten { display: grid; grid-template-columns: 1.15fr 1fr .85fr 1.1fr; gap: 2.2em; padding-top: 1.1em; border-top: 1px solid var(--line); min-height: 0; }
+.unten { display: grid; grid-template-columns: 1fr 1.3fr .95fr .95fr; gap: 2em; padding-top: 1.1em; border-top: 1px solid var(--line); min-height: 0; }
 .unten h2 { margin: 0 0 .9em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
 .unten h2 span { font-weight: 500; letter-spacing: 0; text-transform: none; font-family: var(--mono); }
 .heute { display: grid; gap: .35em; margin-bottom: .9em; }
@@ -119,12 +119,19 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .heute .hs b[data-s="good"] { color: var(--good); } .heute .hs b[data-s="ok"] { color: var(--warn); } .heute .hs b[data-s="bad"] { color: var(--bad); }
 .tage { margin-top: .2em; }
 .tage .kopf { font-size: .78em; color: var(--muted); margin-bottom: .3em; }
-.tage .bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; align-items: end; height: 44px; position: relative; }
+.tage .bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; align-items: end; height: 30px; position: relative; }
 .tage .bars::before { content: ""; position: absolute; left: 0; right: 0; top: var(--ziel, 50%); border-top: 1.5px dashed var(--fg); opacity: .5; }
 .tage .bars i { display: block; height: var(--h); background: var(--c); border-radius: 3px 3px 0 0; }
 .tage .bars i.heute { opacity: .5; }
 .tage .labels { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 2px; }
 .tage .labels span { font-family: var(--mono); font-size: .62em; color: var(--muted); text-align: center; }
+.tage.h24 .bars { grid-template-columns: repeat(24, 1fr); gap: 2px; height: 40px; }
+.tage.h24 .bars::before { display: none; }
+.tage.h24 .labels { grid-template-columns: repeat(24, 1fr); gap: 2px; }
+.tage.h24 .labels span { text-align: left; visibility: hidden; }
+.tage.h24 .labels span:nth-child(6n+1) { visibility: visible; }
+.tage .kopf b { color: var(--fg); font-weight: 600; }
+.tage + .tage { margin-top: .6em; }
 .euro { display: flex; align-items: baseline; gap: .6em; margin-bottom: .9em; }
 .euro .big { font-weight: 800; font-size: 1.5em; letter-spacing: -.02em; line-height: 1; white-space: nowrap; }
 .euro .sub { color: var(--muted); font-size: .85em; }
@@ -221,6 +228,7 @@ footer { display: flex; justify-content: space-between; gap: 1em; flex-wrap: wra
         <div class="hv" id="h-v">–<small> kWh</small></div>
         <div class="hs" id="h-s"></div>
       </div>
+      <div class="tage h24" id="h24"></div>
       <div class="tage" id="tage"></div>
       <div class="eyebrow" style="margin-top:.7em" id="kpi-line"></div>
     </div>
@@ -518,6 +526,25 @@ function render(data) {
     document.getElementById("h-s").innerHTML = `<b data-s="${st}">${txt.charAt(0).toUpperCase() + txt.slice(1)}</b> · Soll bis ${now.getHours()} Uhr ${fmt(erwartet, 1)} kWh` + (prog != null ? `<br>Tagesprognose ${fmt(prog, 1)} kWh` : "");
     document.getElementById("heute-datum").textContent = now.toLocaleDateString("de-DE", { weekday: "long" });
   } else hb.hidden = true;
+  // Letzte 24 Stunden je Stunde, gefärbt nach Preis in dieser Stunde
+  const h24 = document.getElementById("h24"); h24.innerHTML = "";
+  const P24 = data.price_24h || [];
+  if (P24.length >= 8) {
+    const hours = new Map();
+    for (const p of P24) { const k = p.t.slice(0, 13); const o = hours.get(k) || { kwh: 0, ct: 0, n: 0, t: new Date(p.t) }; o.kwh += p.kwh || 0; o.ct += p.ct; o.n++; hours.set(k, o); }
+    const arr = [...hours.values()].slice(-24);
+    const maxK = Math.max(0.1, ...arr.map(a => a.kwh));
+    const total = arr.reduce((s, a) => s + a.kwh, 0);
+    const solar = arr.filter(a => a.ct / a.n < 8).reduce((s, a) => s + a.kwh, 0);
+    const peak = arr.reduce((m, a) => a.kwh > m.kwh ? a : m, arr[0]);
+    let bars = "", labels = "";
+    for (const a of arr) {
+      const avg = a.ct / a.n, c = avg < 8 ? "var(--good)" : avg < 18 ? "var(--warn)" : "var(--bad)";
+      bars += `<i style="--h:${Math.max(3, a.kwh / maxK * 100)}%;--c:${c}" title="${a.t.getHours()} Uhr: ${fmt(a.kwh, 2)} kWh · ${fmt(avg, 1)} ct"></i>`;
+      labels += `<span>${a.t.getHours()}h</span>`;
+    }
+    h24.innerHTML = `<div class="kopf">Letzte 24 h · <b>${fmt(total, 1)} kWh</b> · Spitze <b>${peak.t.getHours()} Uhr</b> mit ${fmt(peak.kwh, 1)} kWh · <b>${fmt(total ? solar / total * 100 : 0)} %</b> bei Solar</div><div class="bars">${bars}</div><div class="labels">${labels}</div>`;
+  }
   // Letzte 7 Tage
   const tg = document.getElementById("tage"); tg.innerHTML = "";
   const ds = (data.daily && data.daily.strom_kwh || []).slice(-7);
