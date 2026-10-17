@@ -91,7 +91,7 @@ def login(op):
 def get_json(op, path, **params):
     params["cache"] = int(dt.datetime.now().timestamp() * 1000)
     r = op.open(BASE + path + "?" + urllib.parse.urlencode(params), timeout=30)
-    txt = r.read().decode("utf-8", "ignore").strip()
+    txt = r.read().decode("utf-8-sig", "ignore").strip().lstrip("\ufeff")
     if "Abgemeldet" in txt or txt.startswith("<"):
         raise RuntimeError("Session abgelaufen bei " + path)
     return json.loads(txt)
