@@ -38,8 +38,8 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .clock { font-weight: 800; font-size: 2em; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .date { color: var(--muted); margin-top: .25em; }
 .kopfrechts { display: flex; align-items: flex-start; gap: 2.4em; }
-.abfahrten { display: grid; gap: .3em; min-width: 0; }
-.abfahrten .ab { display: grid; grid-template-columns: 2.6em 1fr auto; gap: .6em; align-items: baseline; font-size: .88em; }
+.abfahrten { display: grid; gap: .2em; min-width: 0; }
+.abfahrten .ab { display: grid; grid-template-columns: 2.6em 1fr auto; gap: .6em; align-items: baseline; font-size: .84em; }
 .abfahrten .ln { font-weight: 800; color: #fff; background: var(--bad); border-radius: 4px; padding: .05em .35em; text-align: center; font-size: .85em; }
 .abfahrten .ln[data-type="Bus"] { background: var(--fg); }
 .abfahrten .dir { color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -568,7 +568,7 @@ function render(data) {
   // Abfahrten (nur die nächsten 4, innerhalb von 60 Minuten; Countdown relativ zum Datenstand)
   const ab = document.getElementById("abfahrten"); ab.innerHTML = "";
   const age = data.updated ? Math.round((now - new Date(data.updated)) / 60000) : 0;
-  const deps = (data.departures || []).map(d => ({ ...d, left: d.countdown - age })).filter(d => d.left >= 0 && d.left <= 60).slice(0, 3);
+  const deps = (data.departures || []).map(d => ({ ...d, left: d.countdown - age })).filter(d => d.left >= 0 && d.left <= 60).slice(0, 4);
   if (!deps.length) ab.innerHTML = '<span class="leer">Keine Abfahrten in der nächsten Stunde</span>';
   for (const d of deps) {
     const cls = d.left <= 3 ? "soon" : (d.time !== d.plan ? "late" : "");

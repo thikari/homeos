@@ -32,9 +32,9 @@ def fetch_weather():
         return None
 AREA = 168  # H12W01
 
-VRN_STOPS = [("6003053", "Franklin Mitte"), ("6003057", "Franklinschule")]  # VRN-EFA Haltestellen-IDs (Linie 16, Bus 67)
+VRN_STOPS = [("6003053", "Franklin Mitte"), ("6003057", "Franklinschule"), ("6002367", "Pl. der Freundschaft")]  # VRN-EFA Haltestellen-IDs (Linie 16/5, Bus 67/41)
 
-def fetch_departures(stops=VRN_STOPS, limit=8):
+def fetch_departures(stops=VRN_STOPS, limit=14):
     """VRN-EFA (kein Key). Liefert die nächsten Abfahrten mit Echtzeit."""
     out = []
     for sid, label in stops:
@@ -47,7 +47,7 @@ def fetch_departures(stops=VRN_STOPS, limit=8):
                 t = d.get("realDateTime") or d.get("dateTime") or {}
                 plan = d.get("dateTime") or {}
                 out.append({"stop": label, "line": str(sl.get("number", "")).replace("RNV ", ""),
-                            "dir": str(sl.get("direction", "")).replace("Käfertal, ", "").replace("Mannheim, ", ""),
+                            "dir": str(sl.get("direction", "")).replace("Käfertal, ", "").replace("Mannheim, ", "").replace("Ma Hbf - Heidelberg", "Hbf · Heidelberg"),
                             "type": "Tram" if "bahn" in str(sl.get("name", "")).lower() else "Bus",
                             "time": f"{int(t.get('hour', 0)):02d}:{int(t.get('minute', 0)):02d}",
                             "plan": f"{int(plan.get('hour', 0)):02d}:{int(plan.get('minute', 0)):02d}",
