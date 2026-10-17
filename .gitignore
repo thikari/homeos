@@ -1,0 +1,8 @@
+data.json
+www/
+node_modules/
+package*.json
+*.pyc
+_preview.html
+*.ics
+build_data.py

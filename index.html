@@ -1,0 +1,539 @@
+<title>Franklin Energie-Tafel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: white sheet, one decision top-left, a 24-hour strip of windows beneath it, three quiet columns at the bottom.
+   Single light look by choice (a photo frame on a shelf), so no dark theme. */
+:root {
+  --bg: #ffffff;
+  --fg: #0f2a4a;        /* ink: deep blue */
+  --muted: #5f7691;
+  --line: #d9e3ee;
+  --soft: #edf3f9;
+  --good: #16a35a;      /* solar: green */
+  --warn: #e3b000;      /* mixed: yellow */
+  --bad: #2a6fdb;       /* grid: blue */
+  --display: "Manrope", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--display);
+  font-size: clamp(14px, 1.35vw, 19px); line-height: 1.35; font-weight: 500;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 1.6em; box-sizing: border-box;
+}
+.tafel { display: grid; grid-template-rows: auto auto auto auto minmax(0,1fr) auto; gap: 1.1em; height: 100%; max-width: 1500px; margin: 0 auto; }
+.eyebrow { font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1em; flex-wrap: wrap; }
+.clock { font-weight: 800; font-size: 2.4em; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.date { color: var(--muted); margin-top: .25em; }
+.kopfrechts { display: flex; align-items: flex-start; gap: 2.4em; }
+.abfahrten { display: grid; gap: .3em; min-width: 0; }
+.abfahrten .ab { display: grid; grid-template-columns: 2.6em 1fr auto; gap: .6em; align-items: baseline; font-size: .88em; }
+.abfahrten .ln { font-weight: 800; color: #fff; background: var(--bad); border-radius: 4px; padding: .05em .35em; text-align: center; font-size: .85em; }
+.abfahrten .ln[data-type="Bus"] { background: var(--fg); }
+.abfahrten .dir { color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.abfahrten .dir small { color: var(--muted); }
+.abfahrten .cd { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; white-space: nowrap; }
+.abfahrten .cd.soon { color: var(--good); }
+.abfahrten .cd.late { color: var(--warn); }
+.abfahrten .leer { color: var(--muted); font-size: .85em; }
+.wx-now { display: flex; align-items: center; gap: .7em; text-align: right; }
+.wx-now svg { width: 2.6em; height: 2.6em; color: var(--bad); }
+.wx-now .t { font-weight: 800; font-size: 1.7em; line-height: 1; letter-spacing: -.02em; }
+.wx-now .d { color: var(--muted); font-size: .9em; }
+
+/* decision */
+.jetzt { display: grid; grid-template-columns: auto 1fr; gap: 2em; align-items: center; }
+.ampel { display: grid; gap: .5em; }
+.ampel i { display: block; width: clamp(28px, 2.8vw, 44px); height: clamp(28px, 2.8vw, 44px); border-radius: 50%; border: 1.5px solid var(--line); background: var(--bg); }
+.ampel[data-state="bad"]  i:nth-child(1) { background: var(--bad);  border-color: var(--bad); }
+.ampel[data-state="ok"]   i:nth-child(2) { background: var(--warn); border-color: var(--warn); }
+.ampel[data-state="good"] i:nth-child(3) { background: var(--good); border-color: var(--good); }
+.verdict { font-weight: 800; font-size: clamp(2.2em, 4.8vw, 4.6em); line-height: .95; letter-spacing: -.03em; text-wrap: balance; }
+.verdict small { display: block; font-weight: 500; font-size: .26em; letter-spacing: 0; color: var(--muted); margin-top: .7em; line-height: 1.35; max-width: 34em; }
+.geraete { display: flex; gap: 2.2em; margin-top: 1.4em; flex-wrap: wrap; }
+.geraet { display: flex; align-items: center; gap: .7em; min-width: 0; }
+.geraet svg { width: clamp(34px, 3.2vw, 48px); height: auto; display: block; }
+.geraet svg .s { stroke: var(--fg); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.geraet svg .f { fill: var(--fg); }
+.geraet .gn { font-weight: 600; font-size: .92em; }
+.geraet .gs { font-size: .78em; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--state-c); display: flex; align-items: center; gap: .4em; }
+.geraet .gw { font-size: .8em; color: var(--muted); margin-top: .1em; white-space: nowrap; }
+.geraet .gw b { color: var(--fg); font-weight: 600; }
+.geraet .gs::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--state-c); }
+.geraet[data-state="good"] { --state-c: var(--good); }
+.geraet[data-state="ok"]   { --state-c: var(--warn); }
+.geraet[data-state="bad"]  { --state-c: var(--bad); }
+.geraet[data-state="bad"] svg { opacity: .35; }
+
+/* price chart */
+.preis { display: grid; grid-template-columns: auto 1fr; gap: 2em; align-items: center; }
+.preis .jetztpreis .v { font-weight: 800; font-size: 2.6em; line-height: 1; letter-spacing: -.03em; white-space: nowrap; }
+.preis .jetztpreis .v small { font-size: .4em; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+.preis .jetztpreis .trend { font-size: .9em; color: var(--muted); margin-top: .3em; max-width: 16em; }
+.preis .jetztpreis .trend b { color: var(--fg); font-weight: 600; }
+.chart { width: 100%; height: auto; display: block; }
+.chart text { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .band-good { fill: var(--good); opacity: .14; }
+.chart .band-ok { fill: var(--warn); opacity: .18; }
+.chart .ist { fill: none; stroke: var(--fg); stroke-width: 2.2; stroke-linejoin: round; }
+.chart .prog { fill: none; stroke: var(--fg); stroke-width: 2; stroke-dasharray: 5 4; stroke-linejoin: round; opacity: .65; }
+.chart .nowline { stroke: var(--fg); stroke-width: 1; stroke-dasharray: 2 3; }
+.chart .dot { fill: var(--bg); stroke: var(--fg); stroke-width: 2.5; }
+.chart .nachtsym { fill: var(--soft); }
+/* 24h strip */
+.fenster { display: grid; gap: .6em; padding-top: .2em; }
+.fenster .kopf { display: flex; justify-content: space-between; align-items: baseline; gap: 1em; flex-wrap: wrap; }
+.fenster .kopf strong { font-weight: 600; font-size: .95em; }
+.strip { display: grid; grid-template-columns: repeat(24, minmax(0,1fr)); gap: 3px; }
+.strip i { display: block; height: 14px; border-radius: 3px; background: var(--soft); }
+.strip i[data-s="none"] { background: color-mix(in srgb, var(--bad) 18%, white); }
+.strip i[data-s="ok"] { background: var(--warn); }
+.strip i[data-s="good"] { background: var(--good); }
+.strip i.now { outline: 2px solid var(--fg); outline-offset: 1px; }
+.striplabels { display: grid; grid-template-columns: repeat(24, minmax(0,1fr)); gap: 3px; }
+.striplabels span { font-family: var(--mono); font-size: .68em; color: var(--muted); text-align: left; visibility: hidden; }
+.striplabels span:nth-child(6n+1) { visibility: visible; }
+
+/* bottom columns */
+.unten { display: grid; grid-template-columns: 1.1fr 1fr 1.1fr; gap: 2.4em; padding-top: 1.4em; border-top: 1px solid var(--line); min-height: 0; overflow: hidden; }
+.unten h2 { margin: 0 0 .7em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
+.unten h2 span { font-weight: 500; letter-spacing: 0; text-transform: none; font-family: var(--mono); }
+.euro { display: flex; align-items: baseline; gap: .6em; margin-bottom: .6em; }
+.euro .big { font-weight: 800; font-size: 1.8em; letter-spacing: -.02em; line-height: 1; white-space: nowrap; }
+.euro .sub { color: var(--muted); font-size: .85em; }
+.euro .sub b { color: var(--good); font-weight: 600; }
+.row { display: grid; grid-template-columns: 6.4em 1fr auto; gap: .8em; align-items: center; margin-bottom: .4em; }
+.row .n { font-weight: 600; font-size: .92em; }
+.bar { height: 6px; border-radius: 3px; background: var(--soft); position: relative; }
+.bar i { position: absolute; inset: 0; width: var(--w); background: var(--c); border-radius: 3px; }
+.bar b { position: absolute; top: -4px; bottom: -4px; left: var(--soll); width: 1.5px; background: var(--fg); }
+.row .z { font-family: var(--mono); font-size: .8em; white-space: nowrap; color: var(--muted); }
+.row .z strong { color: var(--fg); font-weight: 500; }
+.wx { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8em; }
+.wx .tag { display: grid; justify-items: start; gap: .2em; }
+.wx .tag svg { width: 2em; height: 2em; color: var(--bad); }
+.wx .tag .n { font-weight: 600; font-size: .9em; }
+.wx .tag .tt { font-family: var(--mono); font-size: .85em; }
+.wx .tag .pp { font-size: .78em; color: var(--muted); }
+.termine ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .45em; }
+.termine li { display: grid; grid-template-columns: 8.2em 1fr; gap: .6em; align-items: baseline; font-size: .95em; }
+.termine .d { font-family: var(--mono); font-size: .82em; color: var(--muted); }
+.termine li.heute .d { color: var(--good); font-weight: 500; }
+.termine .leer { color: var(--muted); }
+.stale { position: fixed; left: 0; right: 0; top: 0; padding: .45em 1em; background: var(--warn); color: var(--fg); font-weight: 600; font-size: .85em; text-align: center; z-index: 5; }
+.stale[hidden] { display: none !important; }
+footer { display: flex; justify-content: space-between; gap: 1em; flex-wrap: wrap; color: var(--muted); font-size: .72em; font-family: var(--mono); }
+
+@media (max-width: 900px) {
+  body { height: auto; }
+  .kopfrechts { flex-direction: column; gap: 1em; align-items: flex-start; }
+  .tafel { height: auto; }
+  .unten { grid-template-columns: 1fr; }
+  .striplabels span:nth-child(6n+1) { visibility: visible; }
+}
+</style>
+
+<div class="stale" id="stale" hidden></div>
+<div class="tafel">
+  <header>
+    <div><div class="clock" id="clock">--:--</div><div class="date" id="date"></div></div>
+    <div class="kopfrechts">
+      <div class="abfahrten" id="abfahrten"><span class="leer">Keine Abfahrten</span></div>
+      <div class="wx-now" id="wxnow" hidden><div><div class="t" id="wx-t">–</div><div class="d" id="wx-d"></div></div><span id="wx-i"></span></div>
+    </div>
+  </header>
+
+  <section class="jetzt">
+    <div class="ampel" id="ampel" data-state="bad" aria-label="Strompreis-Ampel"><i></i><i></i><i></i></div>
+    <div>
+      <div class="verdict" id="verdict">Lade…</div>
+      <div class="geraete">
+        <div class="geraet" id="g-spuel" data-state="bad">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><rect class="s" x="6" y="4" width="36" height="40" rx="3"/><line class="s" x1="6" y1="13" x2="42" y2="13"/><circle class="f" cx="12" cy="8.5" r="1.6"/><circle class="f" cx="18" cy="8.5" r="1.6"/><rect class="s" x="11" y="18" width="26" height="21" rx="2"/><ellipse class="s" cx="17" cy="28.5" rx="2.6" ry="7"/><ellipse class="s" cx="24" cy="28.5" rx="2.6" ry="7"/><ellipse class="s" cx="31" cy="28.5" rx="2.6" ry="7"/></svg>
+          <div><div class="gn">Spülmaschine</div><div class="gs" id="gs-spuel">–</div><div class="gw" id="gw-spuel"></div></div>
+        </div>
+        <div class="geraet" id="g-wasch" data-state="bad">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><rect class="s" x="6" y="4" width="36" height="40" rx="3"/><line class="s" x1="6" y1="13" x2="42" y2="13"/><circle class="f" cx="12" cy="8.5" r="1.6"/><rect class="s" x="30" y="7" width="8" height="3" rx="1.5"/><circle class="s" cx="24" cy="29" r="10"/><circle class="s" cx="24" cy="29" r="6.5"/><path class="s" d="M18.5 30.5c2-2 4-2 5.5 0s3.5 2 5.5 0"/></svg>
+          <div><div class="gn">Waschmaschine</div><div class="gs" id="gs-wasch">–</div><div class="gw" id="gw-wasch"></div></div>
+        </div>
+        <div class="geraet" id="g-trock" data-state="bad">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><rect class="s" x="6" y="4" width="36" height="40" rx="3"/><line class="s" x1="6" y1="13" x2="42" y2="13"/><circle class="f" cx="12" cy="8.5" r="1.6"/><rect class="s" x="30" y="7" width="8" height="3" rx="1.5"/><circle class="s" cx="24" cy="29" r="10"/><path class="s" d="M20 33.5c0-3 1.5-3.5 1.5-6s-1.5-3-1.5-5.5M24 34.5c0-3 1.5-3.5 1.5-6s-1.5-3-1.5-5.5M28 33.5c0-3 1.5-3.5 1.5-6s-1.5-3-1.5-5.5"/></svg>
+          <div><div class="gn">Trockner</div><div class="gs" id="gs-trock">–</div><div class="gw" id="gw-trock"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="preis">
+    <div class="jetztpreis">
+      <div class="eyebrow">Strompreis jetzt</div>
+      <div class="v" id="p-now">–<small> ct/kWh</small></div>
+      <div class="trend" id="p-trend"></div>
+    </div>
+    <svg class="chart" id="chart" viewBox="0 0 1000 150" preserveAspectRatio="none" aria-label="Strompreis: letzte 6 und nächste 18 Stunden"></svg>
+  </section>
+
+  <section class="fenster">
+    <div class="kopf"><strong id="fenster-text">Nächstes Fenster: –</strong><span class="eyebrow" id="fenster-quelle"></span></div>
+  </section>
+
+  <section class="unten">
+    <div>
+      <h2>Monatsbudget <span id="monat"></span></h2>
+      <div class="euro" id="euro" hidden><div class="big" id="euro-m">–</div><div class="sub" id="euro-s"></div></div>
+      <div class="row"><div class="n">Strom</div><div class="bar"><i id="b-strom"></i><b id="s-strom"></b></div><div class="z" id="z-strom"></div></div>
+      <div class="row"><div class="n">Kaltwasser</div><div class="bar"><i id="b-kalt"></i><b id="s-kalt"></b></div><div class="z" id="z-kalt"></div></div>
+      <div class="row"><div class="n">Warmwasser</div><div class="bar"><i id="b-warm"></i><b id="s-warm"></b></div><div class="z" id="z-warm"></div></div>
+      <div class="row"><div class="n">Wärme</div><div class="bar"><i id="b-waerme"></i><b id="s-waerme"></b></div><div class="z" id="z-waerme"></div></div>
+      <div class="eyebrow" style="margin-top:.6em" id="kpi-line"></div>
+    </div>
+    <div>
+      <h2>Wetter Mannheim</h2>
+      <div class="wx" id="wx"><span class="leer" style="color:var(--muted)">Keine Wetterdaten</span></div>
+    </div>
+    <div class="termine">
+      <h2>Termine</h2>
+      <ul id="events"><li class="leer">Keine Termine</li></ul>
+    </div>
+  </section>
+
+  <footer>
+    <span id="stand">Daten bis –</span>
+    <span id="live"></span>
+  </footer>
+</div>
+
+<script>
+const ZIEL = { strom_kwh: 2100, kaltwasser_m3: 80, warmwasser_m3: 24, waerme_kwh: 2900 };
+const SAISON = {
+  strom_kwh:     [.095,.085,.085,.08,.075,.075,.08,.08,.085,.085,.085,.09],
+  kaltwasser_m3: [.07,.07,.075,.08,.095,.1,.11,.1,.085,.075,.07,.07],
+  warmwasser_m3: [.09,.085,.085,.085,.08,.075,.075,.075,.08,.085,.09,.095],
+  waerme_kwh:    [.22,.19,.13,.06,.01,0,0,0,.01,.06,.13,.19],
+};
+// Sonneneinstrahlung (W/m²) → Preisklasse. Kalibriert an Franklin 16.10.2026: 115 → 8,5 ct, 246 → 4 ct, 350+ → 0,4 ct.
+const RAD_GOOD = 240, RAD_OK = 100;
+const fmt = (n, d=0) => n == null ? "–" : n.toLocaleString("de-DE", { minimumFractionDigits: d, maximumFractionDigits: d });
+
+// --- Wetter-Icons (WMO-Codes) ---
+const ICON = {
+  sun:   '<circle cx="24" cy="24" r="8" class="s"/><path class="s" d="M24 6v5M24 37v5M6 24h5M37 24h5M11.3 11.3l3.5 3.5M33.2 33.2l3.5 3.5M11.3 36.7l3.5-3.5M33.2 14.8l3.5-3.5"/>',
+  part:  '<circle cx="18" cy="18" r="6.5" class="s"/><path class="s" d="M18 5v4M5 18h4M8.8 8.8l2.8 2.8"/><path class="s" d="M18 38h16a7 7 0 0 0 .8-13.95A10 10 0 0 0 16 28a5 5 0 0 0 2 10z"/>',
+  cloud: '<path class="s" d="M14 38h20a8 8 0 0 0 .9-15.95A11 11 0 0 0 13.5 26 6 6 0 0 0 14 38z"/>',
+  fog:   '<path class="s" d="M10 20h28M8 27h32M12 34h24M16 13h18"/>',
+  rain:  '<path class="s" d="M14 30h20a8 8 0 0 0 .9-15.95A11 11 0 0 0 13.5 18 6 6 0 0 0 14 30z"/><path class="s" d="M18 34l-2 6M25 34l-2 6M32 34l-2 6"/>',
+  snow:  '<path class="s" d="M14 28h20a8 8 0 0 0 .9-15.95A11 11 0 0 0 13.5 16 6 6 0 0 0 14 28z"/><path class="s" d="M18 34v6M15 37h6M30 34v6M27 37h6"/>',
+  storm: '<path class="s" d="M14 28h20a8 8 0 0 0 .9-15.95A11 11 0 0 0 13.5 16 6 6 0 0 0 14 28z"/><path class="s" d="M25 30l-4 7h6l-4 7"/>',
+};
+function wmo(code) {
+  if (code === 0) return ["sun", "Klar"];
+  if (code <= 2) return ["part", code === 1 ? "Heiter" : "Wolkig"];
+  if (code === 3) return ["cloud", "Bedeckt"];
+  if (code <= 48) return ["fog", "Nebel"];
+  if (code <= 57) return ["rain", "Niesel"];
+  if (code <= 67) return ["rain", "Regen"];
+  if (code <= 77) return ["snow", "Schnee"];
+  if (code <= 82) return ["rain", "Schauer"];
+  if (code <= 86) return ["snow", "Schneeschauer"];
+  return ["storm", "Gewitter"];
+}
+const svgIcon = k => '<svg viewBox="0 0 48 48" aria-hidden="true" style="stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round">' + ICON[k].replace(/class="s"/g, "") + "</svg>";
+
+// --- Vorschau: 24 Stunden ab jetzt, Klasse je Stunde ---
+function stundenKlassen(data, now) {
+  const W = data.weather, out = [];
+  const prof = data.price_profile_ct || {};
+  for (let i = 0; i < 24; i++) {
+    const t = new Date(now.getTime() + i * 36e5); t.setMinutes(0, 0, 0);
+    let cls = "none", src = null;
+    if (W && W.hourly) {
+      const key = t.getFullYear() + "-" + String(t.getMonth()+1).padStart(2,"0") + "-" + String(t.getDate()).padStart(2,"0") + "T" + String(t.getHours()).padStart(2,"0") + ":00";
+      const idx = W.hourly.time.indexOf(key);
+      if (idx >= 0) { cls = klasse(preisAus(W.hourly.r[idx], data._cal || CAL_DEFAULT)); src = "wetter"; }
+    }
+    if (!src && prof[t.getHours()] != null) { const p = prof[t.getHours()]; cls = p < 8 ? "good" : p < 18 ? "ok" : "none"; src = "preis"; }
+    if (i === 0 && data.live && data.live.price_ct != null) cls = data.live.price_ct < 8 ? "good" : data.live.price_ct < 18 ? "ok" : "none";
+    out.push({ t, cls });
+  }
+  return out;
+}
+// --- Preismodell: Sonneneinstrahlung → ct/kWh, kalibriert an den echten Preisen der letzten 24 h ---
+const CAL_DEFAULT = [[0, 32.1], [60, 20], [115, 8.5], [180, 5], [246, 4.2], [300, 1.5], [355, 0.4], [1000, 0.4]];
+function kalibrieren(data) {
+  const W = data.weather, P = data.price_24h;
+  if (!W || !W.hourly || !P || P.length < 24) return CAL_DEFAULT;
+  const byHour = {};
+  for (const p of P) { const k = p.t.slice(0, 13) + ":00"; (byHour[k] = byHour[k] || []).push(p.ct); }
+  const pairs = [];
+  for (const k in byHour) { const i = W.hourly.time.indexOf(k); if (i >= 0) pairs.push([W.hourly.r[i], byHour[k].reduce((a,b)=>a+b,0) / byHour[k].length]); }
+  if (pairs.length < 12) return CAL_DEFAULT;
+  // in Einstrahlungs-Klassen mitteln, monoton fallend erzwingen
+  const bins = [0, 40, 90, 150, 220, 300, 400, 1000], cal = [];
+  for (let b = 0; b < bins.length - 1; b++) {
+    const v = pairs.filter(p => p[0] >= bins[b] && p[0] < bins[b+1]).map(p => p[1]);
+    if (v.length) cal.push([(bins[b] + Math.min(bins[b+1], 500)) / 2, v.reduce((a,c)=>a+c,0) / v.length]);
+  }
+  if (cal.length < 3) return CAL_DEFAULT;
+  for (let i = 1; i < cal.length; i++) cal[i][1] = Math.min(cal[i][1], cal[i-1][1]);
+  cal.unshift([0, cal[0][1]]); cal.push([1000, cal[cal.length-1][1]]);
+  return cal;
+}
+function preisAus(r, cal) {
+  for (let i = 1; i < cal.length; i++) if (r <= cal[i][0]) { const [x0, y0] = cal[i-1], [x1, y1] = cal[i]; return y0 + (y1 - y0) * (r - x0) / (x1 - x0); }
+  return cal[cal.length-1][1];
+}
+function klasse(ct) { return ct < 8 ? "good" : ct < 18 ? "ok" : "none"; }
+
+// Reihe: letzte 6 h Ist (Viertelstunden), nächste 18 h Prognose (Stunden)
+function preisReihe(data, now, cal) {
+  const pts = [];
+  const t0 = new Date(now.getTime() - 6 * 36e5);
+  for (const p of data.price_24h || []) { const t = new Date(p.t); if (t >= t0 && t <= now) pts.push({ t, ct: p.ct, ist: true }); }
+  const W = data.weather;
+  if (W && W.hourly) for (let i = 1; i <= 18; i++) {
+    const t = new Date(now.getTime() + i * 36e5); t.setMinutes(0, 0, 0);
+    const key = t.getFullYear() + "-" + String(t.getMonth()+1).padStart(2,"0") + "-" + String(t.getDate()).padStart(2,"0") + "T" + String(t.getHours()).padStart(2,"0") + ":00";
+    const idx = W.hourly.time.indexOf(key);
+    if (idx >= 0) pts.push({ t, ct: preisAus(W.hourly.r[idx], cal), ist: false, r: W.hourly.r[idx] });
+  }
+  return pts;
+}
+function zeichneChart(pts, now, live) {
+  const svg = document.getElementById("chart"); if (!pts.length) { svg.innerHTML = ""; return; }
+  const W = 1000, H = 150, L = 34, R = 12, T = 12, B = 24;
+  const tmin = pts[0].t.getTime(), tmax = pts[pts.length-1].t.getTime();
+  const x = t => L + (t - tmin) / (tmax - tmin) * (W - L - R);
+  const y = ct => T + (1 - Math.min(ct, 35) / 35) * (H - T - B);
+  let out = "";
+  // Bänder: günstig (<8) und brauchbar (<18)
+  out += `<rect class="band-good" x="${L}" y="${y(8)}" width="${W-L-R}" height="${y(0)-y(8)}"/>`;
+  out += `<rect class="band-ok" x="${L}" y="${y(18)}" width="${W-L-R}" height="${y(8)-y(18)}"/>`;
+  for (const g of [0, 10, 20, 30]) out += `<line class="grid" x1="${L}" x2="${W-R}" y1="${y(g)}" y2="${y(g)}"/><text x="${L-6}" y="${y(g)+4}" text-anchor="end">${g}</text>`;
+  // Stundenlabels
+  for (const p of pts) { const h = p.t.getHours(); if (h % 3 === 0 && p.t.getMinutes() === 0) out += `<text x="${x(p.t.getTime())}" y="${H-8}" text-anchor="middle">${h} Uhr</text>`; }
+  const path = arr => arr.map((p, i) => (i ? "L" : "M") + x(p.t.getTime()).toFixed(1) + " " + y(p.ct).toFixed(1)).join(" ");
+  const ist = pts.filter(p => p.ist), prog = pts.filter(p => !p.ist);
+  if (ist.length) out += `<path class="ist" d="${path(ist)}"/>`;
+  if (prog.length) out += `<path class="prog" d="${path(ist.length ? [ist[ist.length-1], ...prog] : prog)}"/>`;
+  const nx = x(now.getTime());
+  out += `<line class="nowline" x1="${nx}" x2="${nx}" y1="${T}" y2="${H-B}"/>`;
+  const nowCt = live && live.price_ct != null ? live.price_ct : (ist.length ? ist[ist.length-1].ct : null);
+  if (nowCt != null) out += `<circle class="dot" cx="${nx}" cy="${y(nowCt)}" r="5"/>`;
+  svg.innerHTML = out;
+}
+function trendText(pts, now, live) {
+  const nowCt = live && live.price_ct != null ? live.price_ct : null;
+  const prog = pts.filter(p => !p.ist); if (!prog.length) return "";
+  const min = prog.reduce((a, p) => p.ct < a.ct ? p : a, prog[0]);
+  const in3 = prog[2] || prog[prog.length-1];
+  const uhr = p => p.t.getHours() + " Uhr";
+  const tag = p => p.t.getDate() === now.getDate() ? "heute" : "morgen";
+  let s = nowCt != null ? `In 3 Stunden <b>~${fmt(in3.ct, in3.ct < 10 ? 1 : 0)} ct</b>. ` : "";
+  if (min.ct < 8) s += `Tiefpunkt <b>${tag(min)} ${uhr(min)}</b> mit ~${fmt(min.ct, 1)} ct.`;
+  else if (min.ct < 18) s += `Günstigste Stunde ${tag(min)} ${uhr(min)} mit ~${fmt(min.ct)} ct – kein echter Solarüberschuss.`;
+  else s += "In den nächsten 18 Stunden bleibt es beim Netzpreis.";
+  return s;
+}
+
+// Geräte: Laufzeit und Verbrauch je Durchgang (Eco-Programme)
+const GERAETE = { spuel: { h: 3, kwh: 0.9 }, wasch: { h: 2, kwh: 0.8 }, trock: { h: 1.5, kwh: 2.4 } };
+// Stundenpreise ab jetzt (Index 0 = laufende Stunde) aus Live-Preis + Prognose
+function stundenPreise(data, reihe, now) {
+  const arr = [];
+  const nowCt = data.live && data.live.price_ct != null ? data.live.price_ct : null;
+  for (let i = 0; i < 24; i++) {
+    const t = new Date(now.getTime() + i * 36e5); t.setMinutes(0, 0, 0);
+    const p = reihe.find(q => !q.ist && q.t.getTime() === t.getTime());
+    arr.push({ t, ct: i === 0 && nowCt != null ? nowCt : (p ? p.ct : null) });
+  }
+  return arr;
+}
+function bestesFenster(sp, g, now) {
+  const n = Math.ceil(g.h); let best = null;
+  for (let i = 0; i + n <= sp.length; i++) {
+    const win = sp.slice(i, i + n); if (win.some(w => w.ct == null)) continue;
+    const avg = win.reduce((a, w) => a + w.ct, 0) / n;
+    if (!best || avg < best.avg - 0.01) best = { i, avg };
+  }
+  if (!best) return null;
+  // Startspanne: alle Starts, deren Durchschnitt höchstens 2 ct über dem Optimum liegt
+  const starts = [];
+  for (let i = 0; i + n <= sp.length; i++) { const win = sp.slice(i, i + n); if (win.some(w => w.ct == null)) continue; const avg = win.reduce((a, w) => a + w.ct, 0) / n; if (avg <= best.avg + 2) starts.push(i); }
+  const a = starts[0], b = starts[starts.length - 1];
+  const jetztCt = sp[0].ct;
+  return { from: sp[a].t, to: sp[b].t, avg: best.avg, jetzt: a === 0, kostenBest: best.avg * g.kwh / 100, kostenJetzt: jetztCt != null ? jetztCt * g.kwh / 100 : null };
+}
+function fensterLabel(f, now) {
+  if (!f) return "";
+  const tag = t => t.getDate() === now.getDate() ? "heute" : "morgen";
+  const eur = v => v < 0.1 ? Math.round(v * 100) + " ct" : v.toFixed(2).replace(".", ",") + " €";
+  if (f.jetzt) return `Jetzt starten · ~${eur(f.kostenBest)}`;
+  const span = f.from.getTime() === f.to.getTime() ? `${f.from.getHours()} Uhr` : `${f.from.getHours()}–${f.to.getHours()} Uhr`;
+  return `Start <b>${tag(f.from)} ${span}</b> · ${eur(f.kostenBest)} statt ${f.kostenJetzt != null ? eur(f.kostenJetzt) : "–"}`;
+}
+
+function fensterText(kl, now) {
+  const first = (c) => kl.findIndex((k, i) => i > 0 && k.cls === c);
+  const spanOf = (i, c) => { let j = i; while (j + 1 < kl.length && kl[j+1].cls === c) j++; return [i, j]; };
+  const when = (k) => (k.t.getDate() === now.getDate() ? "heute" : "morgen") + " " + k.t.getHours() + " Uhr";
+  const inH = (i) => i === 1 ? "in 1 Stunde" : "in " + i + " Stunden";
+  let i = first("good");
+  if (i >= 0) { const [a, b] = spanOf(i, "good"); return `Nächstes gutes Fenster ${inH(a)} · ${when(kl[a])} bis ${kl[b].t.getHours()+1} Uhr`; }
+  i = first("ok");
+  if (i >= 0) { const [a, b] = spanOf(i, "ok"); return `Kein Solarüberschuss in Sicht · brauchbar ${inH(a)}, ${when(kl[a])} bis ${kl[b].t.getHours()+1} Uhr`; }
+  return "In den nächsten 24 Stunden nur Netzstrom";
+}
+
+function bewerten(data, now, kl) {
+  const h = now.getHours(), L = data.live || {};
+  const nextGood = kl.findIndex((k, i) => i > 0 && k.cls === "good");
+  const nextOk = kl.findIndex((k, i) => i > 0 && k.cls !== "none");
+  if (L.price_ct != null) {
+    const p = L.price_ct;
+    if (p < 8)  return { state: "good", text: "Ja, jetzt.", sub: `Strom kostet gerade ${fmt(p,1)} ct – Solarüberschuss im Quartier.` };
+    if (p < 18) return { state: "ok", text: "Geht so.", sub: `${fmt(p,1)} ct. ` + (nextGood > 0 && nextGood <= 3 ? `In ${nextGood} Stunden wird es richtig günstig.` : "Spülen und Waschen ja, Trockner lieber nicht.") };
+    if (nextGood > 0 && nextGood <= 6) return { state: "bad", text: "Warten.", sub: `Jetzt ${fmt(p,1)} ct Netzstrom. In ${nextGood} Stunden Solarstrom – Timer stellen.` };
+    if (nextOk > 0 && nextOk <= 6) return { state: "bad", text: "Warten.", sub: `Jetzt ${fmt(p,1)} ct. In ${nextOk} Stunden etwas günstiger – Timer stellen.` };
+    return { state: "bad", text: "Netzstrom.", sub: `${fmt(p,1)} ct. ` + (nextGood > 0 ? "Morgen Mittag kommt Sonne – große Geräte dann." : "Auch morgen wenig Sonne. Nur das Nötige, Trockner aus.") };
+  }
+  const c = kl[0].cls;
+  if (c === "good") return { state: "good", text: "Ja, jetzt.", sub: "Sonne steht hoch – Solarüberschuss wahrscheinlich." };
+  if (c === "ok") return { state: "ok", text: "Geht so.", sub: "Etwas Sonne. Spülen und Waschen ja, Trockner lieber nicht." };
+  return { state: "bad", text: "Netzstrom.", sub: nextGood > 0 ? `In ${nextGood} Stunden kommt Sonne.` : "Keine Sonne in Sicht." };
+}
+
+function budget(key, now, data) {
+  const m = now.getMonth(), tage = new Date(now.getFullYear(), m+1, 0).getDate();
+  const monatsziel = ZIEL[key] * SAISON[key][m];
+  const ok = data.month && data.month.month === m+1;
+  const gezaehlt = ok ? data.month.days_counted : 0;
+  return { ist: ok ? data.month[key] : 0, soll: monatsziel * gezaehlt / tage, monatsziel };
+}
+
+function render(data) {
+  const now = new Date();
+  data._cal = kalibrieren(data);
+  const kl = stundenKlassen(data, now);
+  const reihe = preisReihe(data, now, data._cal);
+  zeichneChart(reihe, now, data.live);
+  document.getElementById("p-now").innerHTML = (data.live && data.live.price_ct != null ? fmt(data.live.price_ct, 1) : "–") + "<small> ct/kWh</small>";
+  document.getElementById("p-trend").innerHTML = trendText(reihe, now, data.live);
+  const b = bewerten(data, now, kl);
+  document.getElementById("ampel").dataset.state = b.state;
+  document.getElementById("verdict").innerHTML = b.text + "<small>" + b.sub + "</small>";
+  const G = { good: ["Jetzt starten", "Jetzt starten", "Jetzt starten"], ok: ["Geht", "Geht", "Lieber warten"], bad: ["Warten", "Warten", "Aus"] }[b.state];
+  const S = { good: ["good","good","good"], ok: ["ok","ok","bad"], bad: ["bad","bad","bad"] }[b.state];
+  const sp = stundenPreise(data, reihe, now);
+  [["spuel",0],["wasch",1],["trock",2]].forEach(([id,i]) => {
+    document.getElementById("g-"+id).dataset.state = S[i]; document.getElementById("gs-"+id).textContent = G[i];
+    document.getElementById("gw-"+id).innerHTML = fensterLabel(bestesFenster(sp, GERAETE[id], now), now);
+  });
+
+  // 24h-Streifen
+  document.getElementById("fenster-text").textContent = fensterText(kl, now);
+  document.getElementById("fenster-quelle").textContent = data.weather ? "Prognose aus Sonnenstand, kalibriert an den Portalpreisen" : "Preisprofil der letzten 24 h";
+
+  // Wetter
+  const W = data.weather;
+  const wxnow = document.getElementById("wxnow");
+  if (W && W.current) {
+    wxnow.hidden = false; const [ik, name] = wmo(W.current.weather_code);
+    document.getElementById("wx-t").textContent = fmt(W.current.temperature_2m) + "°";
+    document.getElementById("wx-d").textContent = name;
+    document.getElementById("wx-i").innerHTML = svgIcon(ik);
+  } else wxnow.hidden = true;
+  const wx = document.getElementById("wx");
+  if (W && W.daily) {
+    wx.innerHTML = "";
+    W.daily.time.slice(0, 3).forEach((d, i) => {
+      const [ik, name] = wmo(W.daily.weather_code[i]);
+      const dt = new Date(d + "T00:00");
+      const lab = i === 0 ? "Heute" : i === 1 ? "Morgen" : dt.toLocaleDateString("de-DE", { weekday: "long" });
+      wx.insertAdjacentHTML("beforeend", `<div class="tag">${svgIcon(ik)}<div class="n">${lab}</div><div class="tt">${fmt(W.daily.temperature_2m_max[i])}° / ${fmt(W.daily.temperature_2m_min[i])}°</div><div class="pp">${name}${W.daily.precipitation_probability_max[i] >= 30 ? " · " + W.daily.precipitation_probability_max[i] + " %" : ""}</div></div>`);
+    });
+  }
+
+  // Budget
+  document.getElementById("monat").textContent = now.toLocaleDateString("de-DE", { month: "long" }) + " · Tag " + now.getDate() + "/" + new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  for (const [id,key,unit,dec] of [["strom","strom_kwh","kWh",0],["kalt","kaltwasser_m3","m³",1],["warm","warmwasser_m3","m³",1],["waerme","waerme_kwh","kWh",0]]) {
+    const bu = budget(key, now, data);
+    const w = bu.monatsziel > 0 ? Math.min(100, bu.ist / bu.monatsziel * 100) : 0;
+    const ratio = bu.soll > 0 ? bu.ist / bu.soll : 0;
+    const c = bu.monatsziel === 0 ? "var(--line)" : ratio <= 1 ? "var(--good)" : ratio <= 1.15 ? "var(--warn)" : "var(--bad)";
+    const bar = document.getElementById("b-"+id); bar.style.setProperty("--w", w + "%"); bar.style.setProperty("--c", c);
+    document.getElementById("s-"+id).style.setProperty("--soll", (bu.monatsziel > 0 ? bu.soll / bu.monatsziel * 100 : 0) + "%");
+    document.getElementById("z-"+id).innerHTML = bu.monatsziel === 0 ? "<strong>" + fmt(bu.ist,dec) + "</strong> " + unit : "<strong>" + fmt(bu.ist,dec) + "</strong> / " + fmt(bu.monatsziel,dec) + " " + unit;
+  }
+  const ziel = ZIEL.strom_kwh * SAISON.strom_kwh[now.getMonth()] / new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const tage = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const bs = budget("strom_kwh", now, data), gez = data.month && data.month.days_counted || 0;
+  const prog = gez > 0 ? bs.ist / gez * tage : null;
+  document.getElementById("kpi-line").textContent = `Heute ${fmt(data.today && data.today.strom_kwh, 1)} kWh · Ø 7 Tage ${fmt(data.week_avg_strom_kwh, 1)} · Ziel ${fmt(ziel, 1)}` + (prog != null ? ` · Monatsprognose ${fmt(prog)} / ${fmt(bs.monatsziel)} kWh` : "");
+
+  // Abfahrten (nur die nächsten 4, innerhalb von 60 Minuten; Countdown relativ zum Datenstand)
+  const ab = document.getElementById("abfahrten"); ab.innerHTML = "";
+  const age = data.updated ? Math.round((now - new Date(data.updated)) / 60000) : 0;
+  const deps = (data.departures || []).map(d => ({ ...d, left: d.countdown - age })).filter(d => d.left >= 0 && d.left <= 60).slice(0, 3);
+  if (!deps.length) ab.innerHTML = '<span class="leer">Keine Abfahrten in der nächsten Stunde</span>';
+  for (const d of deps) {
+    const cls = d.left <= 3 ? "soon" : (d.time !== d.plan ? "late" : "");
+    ab.insertAdjacentHTML("beforeend", `<div class="ab"><span class="ln" data-type="${d.type}">${d.line}</span><span class="dir">${d.dir} <small>· ${d.stop}</small></span><span class="cd ${cls}">${d.left <= 0 ? "jetzt" : d.left + " min"}</span></div>`);
+  }
+
+  // Kosten in Euro
+  const C = data.cost, eu = document.getElementById("euro");
+  if (C && C.month) {
+    eu.hidden = false;
+    document.getElementById("euro-m").textContent = fmt(C.month.eur, 2).replace(",00", "") + " €";
+    document.getElementById("euro-s").innerHTML = `Strom bisher · <b>${fmt(C.month.saved_eur)} € Solar gespart</b><br>Jahr ${fmt(C.year ? C.year.eur : null)} €`;
+  } else eu.hidden = true;
+
+  // Termine
+  const ul = document.getElementById("events"); ul.innerHTML = "";
+  const heute = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0");
+  const hhmm = now.toTimeString().slice(0,5);
+  const evs = (data.events || []).filter(e => e.date > heute || (e.date === heute && (!e.time || e.time >= hhmm))).slice(0, 6);
+  if (!evs.length) ul.innerHTML = '<li class="leer">Keine Termine</li>';
+  for (const e of evs) {
+    const d = new Date(e.date + "T00:00");
+    const li = document.createElement("li"); if (e.date === heute) li.className = "heute";
+    const wd = e.date === heute ? "Heute" : d.toLocaleDateString("de-DE", { weekday: "short" }) + " " + d.getDate() + "." + (d.getMonth()+1) + ".";
+    li.innerHTML = '<span class="d">' + wd + (e.time ? " " + e.time : "") + "</span><span>" + e.title + "</span>";
+    ul.appendChild(li);
+  }
+
+  // Datenstand: älter als 20 Minuten → Hinweis, Abfahrten ausblenden
+  const alterMin = data.updated ? Math.round((now - new Date(data.updated)) / 60000) : null;
+  const stale = document.getElementById("stale");
+  if (alterMin == null) { stale.hidden = false; stale.textContent = "Keine Daten – Fetcher läuft nicht"; }
+  else if (alterMin > 20) { stale.hidden = false; stale.textContent = `Keine neuen Daten seit ${new Date(data.updated).toLocaleString("de-DE", { weekday: "short", hour: "2-digit", minute: "2-digit" })} (${alterMin < 120 ? alterMin + " Minuten" : Math.round(alterMin / 60) + " Stunden"}) – Preis und Abfahrten sind veraltet`; document.getElementById("abfahrten").innerHTML = '<span class="leer">Abfahrten veraltet</span>'; }
+  else stale.hidden = true;
+
+  // Footer
+  const L = data.live || {};
+  document.getElementById("live").textContent = L.power_w != null ? `Jetzt ${fmt(L.power_w)} W · ${fmt(L.price_ct,1)} ct/kWh · Dach ${fmt(L.pv_kw,1)} kW · Quartier ${fmt(L.siedlung_kw)} kW` : "";
+  document.getElementById("stand").textContent = "Stand " + (data.updated ? data.updated.replace("T"," ") : "–");
+}
+
+function uhr() {
+  const n = new Date();
+  document.getElementById("clock").textContent = n.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  document.getElementById("date").textContent = n.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" });
+}
+let DATA = { live:{}, month:null, events:[] };
+async function laden() {
+  try { const r = await fetch("data.json", { cache: "no-store" }); if (r.ok) DATA = await r.json(); } catch (e) {}
+  render(DATA);
+}
+uhr(); laden();
+setInterval(uhr, 30e3);
+setInterval(laden, 5*60e3);
+setInterval(() => render(DATA), 10*60e3);
+</script>
