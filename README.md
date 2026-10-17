@@ -27,6 +27,13 @@ Prüfen:  `systemctl list-timers tafel-fetch.timer` · `journalctl -u tafel-fetc
 Update:  neue Dateien in den Ordner, `sudo bash install.sh` erneut (Env-Datei bleibt).
 Die Tafel zeigt oben einen gelben Balken, sobald `data.json` älter als 20 Minuten ist.
 
+## Alternative: Railway (HTTPS, Deploy bei jedem Push)
+1. Railway → New Project → Deploy from GitHub repo → `thikari/homeos`. Der Dockerfile wird erkannt.
+2. Variables setzen: `ENOCOO_USER`, `ENOCOO_PASS`, `TAFEL_TOKEN` (langer Zufallsstring, z. B. `openssl rand -hex 16`), optional `ICS_URL`.
+3. Settings → Networking → Generate Domain. Adresse für den Rahmen: `https://<domain>/<TAFEL_TOKEN>/`
+Ein Prozess (`railway_main.py`) liefert die Seite aus und holt alle 5 Minuten Daten. Logs zeigen jede Abfrage.
+Jeder Push auf `main` deployt neu – `install.sh`/`update.sh` sind dann nicht nötig.
+
 ## Auf dem Rahmen
 Chrome/WebView im Kiosk-Modus auf `https://dein-server/tafel/` öffnen. Die Seite skaliert von 400 px bis 1600 px Breite; dunkles Design ist Standard.
 

@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+"""Ein Prozess für Railway (oder jeden Container): Webserver + Fetcher-Schleife alle 5 Minuten.
+Env: ENOCOO_USER, ENOCOO_PASS, ICS_URL (optional), TAFEL_TOKEN, PORT (von Railway gesetzt)."""
+import os, sys, time, threading, subprocess, shutil
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+WWW = os.path.join(HERE, "www")
+os.makedirs(WWW, exist_ok=True)
+shutil.copy(os.path.join(HERE, "index.html"), os.path.join(WWW, "index.html"))
+INTERVAL = int(os.environ.get("FETCH_INTERVAL", "300"))
+
+def fetch_loop():
+    while True:
+        cmd = [sys.executable, os.path.join(HERE, "enocoo_fetch.py"), "--events", os.path.join(HERE, "termine.json"), "--out", os.path.join(WWW, "data.json.tmp")]
+        if os.environ.get("ICS_URL"):
+            cmd += ["--ics", os.environ["ICS_URL"]]
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if r.returncode == 0:
+                os.replace(os.path.join(WWW, "data.json.tmp"), os.path.join(WWW, "data.json"))
+                print(r.stdout.strip(), flush=True)
+            else:
+                print("fetch failed:", r.stderr.strip()[-500:], flush=True)
+        except Exception as e:
+            print("fetch error:", e, flush=True)
+        time.sleep(INTERVAL)
+
+threading.Thread(target=fetch_loop, daemon=True).start()
+os.environ.setdefault("TAFEL_PORT", os.environ.get("PORT", "8787"))
+os.environ["TAFEL_ROOT"] = WWW
+exec(open(os.path.join(HERE, "tafel_server.py")).read())
