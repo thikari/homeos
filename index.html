@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Franklin Energie-Tafel</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -139,7 +144,8 @@ footer { display: flex; justify-content: space-between; gap: 1em; flex-wrap: wra
   .striplabels span:nth-child(6n+1) { visibility: visible; }
 }
 </style>
-
+</head>
+<body>
 <div class="stale" id="stale" hidden></div>
 <div class="tafel">
   <header>
@@ -537,3 +543,5 @@ setInterval(uhr, 30e3);
 setInterval(laden, 5*60e3);
 setInterval(() => render(DATA), 10*60e3);
 </script>
+</body>
+</html>

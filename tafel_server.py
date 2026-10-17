@@ -10,6 +10,7 @@ if not TOKEN:
     sys.exit("TAFEL_TOKEN fehlt")
 
 class H(http.server.SimpleHTTPRequestHandler):
+    extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".html": "text/html; charset=utf-8", ".json": "application/json; charset=utf-8"}
     def __init__(self, *a, **k):
         super().__init__(*a, directory=ROOT, **k)
     def translate_path(self, path):
