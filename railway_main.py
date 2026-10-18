@@ -36,10 +36,11 @@ def einkauf_loop():
                 print("einkauf failed:", r.stderr.strip()[-300:], flush=True)
         except Exception as e:
             print("einkauf error:", e, flush=True)
-        time.sleep(int(os.environ.get("EINKAUF_INTERVAL", "60")))
+        time.sleep(int(os.environ.get("EINKAUF_INTERVAL", "900")))
 
 threading.Thread(target=fetch_loop, daemon=True).start()
 threading.Thread(target=einkauf_loop, daemon=True).start()
 os.environ.setdefault("TAFEL_PORT", os.environ.get("PORT", "8787"))
 os.environ["TAFEL_ROOT"] = WWW
+os.environ.setdefault("EINKAUF_STATE", os.path.join(HERE, "einkauf_state.json"))
 exec(open(os.path.join(HERE, "tafel_server.py")).read())

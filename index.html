@@ -752,9 +752,7 @@ function renderEinkauf(e) {
     ang.insertAdjacentHTML("beforeend", `<div class="angebot"><div><div class="store">${o.store}${o.soon ? " · ab " + new Date(o.from + "T00:00").toLocaleDateString("de-DE", { weekday: "short" }) : ""}</div><div class="p">${o.brand ? o.brand + " " : ""}${o.product} <small>· ${o.desc || ""}</small></div></div><div class="pr"><b>${eur(o.price)}</b>${o.old ? ` <s>${eur(o.old)}</s>` : ""}${o.unit ? `<br><small>je ${o.unit}</small>` : ""}</div></div>`);
   }
   document.getElementById("einkauf-stand").textContent = e.updated ? "Stand " + e.updated.replace("T", " ") : "";
-  document.getElementById("einkauf-hinweis").innerHTML = e.telegram
-    ? 'Per Telegram an den Bot: <code>Milch, Eier</code> fügt hinzu · <code>x Milch</code> hakt ab · <code>leer</code> leert · <code>liste</code> zeigt die Liste.'
-    : 'Noch kein Telegram-Bot verbunden – <code>TELEGRAM_TOKEN</code> in Railway setzen.';
+  document.getElementById("einkauf-hinweis").innerHTML = 'Pflegen über die Handy-Seite <code>…/einkauf/</code> (als Lesezeichen auf den Homescreen): <code>Milch, Eier</code> fügt hinzu · Antippen hakt ab.';
 }
 async function ladenEinkauf() {
   try { const r = await fetch("einkauf.json", { cache: "no-store" }); if (r.ok) EINKAUF = await r.json(); } catch (e) {}
