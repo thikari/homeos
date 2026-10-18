@@ -85,3 +85,11 @@ Die Eingabe-Leiste (`einkauf.js`) gibt es auf der Handy-Seite `/<token>/einkauf/
 - Antippen eines Artikels hakt ihn ab – auf dem Handy und auf der Tafel.
 
 Kamera und Mikrofon verlangen HTTPS (Railway hat das) und einmalig die Freigabe im Browser.
+
+## Tab „Mobil"
+
+`mobil.py` läuft alle 2 Minuten (`MOBIL_INTERVAL`) und schreibt `mobil.json`:
+
+- **Bahn & Bus** – alle Abfahrten der drei Haltestellen (Franklin Mitte, Franklinschule, Platz der Freundschaft) mit Echtzeit, Verspätung und Richtung.
+- **FRANKLIN Mobil** – Fahrzeuge im Quartier (E-Autos, Lastenräder) mit Standort, Akku und ob sie in den nächsten 2 h frei sind. Quelle: Cantamen-CASIREST-API hinter buchung.franklin-mobil.de (öffentlicher Web-App-Key, kein Login nötig).
+- **Unsere Buchungen** – eigene Buchungen der nächsten 60 Tage. Dafür in Railway `FRANKLIN_LOGIN` und `FRANKLIN_PASS` setzen (die Zugangsdaten der FRANKLIN-Mobil-App). Das Login-Token wird neben `einkauf_state.json` gecacht.

@@ -39,8 +39,20 @@ def einkauf_loop():
             print("einkauf error:", e, flush=True)
         time.sleep(int(os.environ.get("EINKAUF_INTERVAL", "900")))
 
+def mobil_loop():
+    state_dir = os.path.dirname(os.environ.get("EINKAUF_STATE", os.path.join(HERE, "einkauf_state.json")))
+    while True:
+        try:
+            r = subprocess.run([sys.executable, os.path.join(HERE, "mobil.py"), os.path.join(WWW, "mobil.json")], capture_output=True, text=True, timeout=120,
+                               env={**os.environ, "MOBIL_TOKEN_FILE": os.path.join(state_dir, "mobil_token.json")})
+            print((r.stdout or r.stderr).strip()[-300:], flush=True)
+        except Exception as e:
+            print("mobil error:", e, flush=True)
+        time.sleep(int(os.environ.get("MOBIL_INTERVAL", "120")))
+
 threading.Thread(target=fetch_loop, daemon=True).start()
 threading.Thread(target=einkauf_loop, daemon=True).start()
+threading.Thread(target=mobil_loop, daemon=True).start()
 os.environ.setdefault("TAFEL_PORT", os.environ.get("PORT", "8787"))
 os.environ["TAFEL_ROOT"] = WWW
 os.environ.setdefault("EINKAUF_STATE", os.path.join(HERE, "einkauf_state.json"))

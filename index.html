@@ -165,6 +165,41 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .seite-einkauf { display: none; }
 body[data-tab="einkauf"] .seite-einkauf { display: block; }
 body[data-tab="einkauf"] .seite-energie { display: none; }
+.seite-mobil { display: none; }
+body[data-tab="mobil"] .seite-mobil { display: block; }
+body[data-tab="mobil"] .seite-energie, body[data-tab="mobil"] .seite-einkauf { display: none; }
+body[data-tab="einkauf"] .seite-mobil { display: none; }
+/* Mobil */
+.mobil { display: grid; grid-template-columns: 1.25fr 1fr; gap: 2.4em; min-height: calc(100vh - 8em); }
+.mobil h2 { margin: 0 0 .9em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
+.mobil h2 span { font-weight: 500; letter-spacing: 0; text-transform: none; font-family: var(--mono); }
+.halte { display: grid; gap: 1.6em; }
+.halte h3 { margin: 0 0 .35em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--bad); font-weight: 700; display: flex; justify-content: space-between; }
+.halte h3 span { color: var(--muted); font-weight: 500; letter-spacing: 0; text-transform: none; }
+.tafel-ab { display: grid; gap: .15em; }
+.tafel-ab .ab { display: grid; grid-template-columns: 3em 1fr auto auto; gap: .8em; align-items: baseline; padding: .32em 0; border-bottom: 1px solid var(--line); font-size: 1.05em; }
+.tafel-ab .ln { font-weight: 800; color: #fff; background: var(--bad); border-radius: 5px; padding: .08em .3em; text-align: center; font-size: .85em; }
+.tafel-ab .ln[data-type="Bus"] { background: var(--fg); }
+.tafel-ab .dir { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tafel-ab .pl { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); font-size: .85em; }
+.tafel-ab .cd { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 700; min-width: 3.4em; text-align: right; }
+.tafel-ab .cd.soon { color: var(--good); } .tafel-ab .cd.late { color: var(--warn); }
+.tafel-ab .leer { color: var(--muted); font-size: .9em; }
+.fz { list-style: none; margin: 0 0 1.8em; padding: 0; }
+.fz li { display: grid; grid-template-columns: 2em 1fr auto; gap: .8em; align-items: center; padding: .38em 0; border-bottom: 1px solid var(--line); }
+.fz li.belegt { opacity: .45; }
+.fz svg { width: 1.7em; height: 1.7em; stroke: var(--fg); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.fz .n { font-weight: 700; } .fz .n small { display: block; font-weight: 500; color: var(--muted); font-size: .78em; }
+.fz .st { font-size: .78em; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--good); white-space: nowrap; }
+.fz li.belegt .st { color: var(--muted); }
+.fz .st small { display: block; font-family: var(--mono); font-weight: 500; letter-spacing: 0; text-transform: none; text-align: right; }
+.buch { list-style: none; margin: 0; padding: 0; }
+.buch li { display: grid; grid-template-columns: auto 1fr; gap: 1em; align-items: baseline; padding: .55em 0; font-size: 1.1em; border-bottom: 1px solid var(--line); }
+.buch .wann { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+.buch .wann small { display: block; font-weight: 500; color: var(--muted); }
+.buch .was { font-weight: 600; } .buch .was small { display: block; color: var(--muted); font-weight: 500; font-size: .85em; }
+.buch li.jetzt .wann { color: var(--good); }
+.buch .leer { color: var(--muted); font-weight: 500; display: block; }
 /* Einkauf */
 .einkauf { display: grid; grid-template-columns: 1.1fr 1fr; gap: 2.4em; min-height: calc(100vh - 8em); }
 .einkauf h2 { margin: 0 0 .9em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
@@ -201,6 +236,7 @@ body[data-tab="einkauf"] .seite-energie { display: none; }
 .heute .wasser small { color: var(--muted); }
 /* ---------- Tablet hochkant / kleine Fenster ---------- */
 @media (max-width: 1100px) {
+  .mobil { grid-template-columns: 1fr; }
   body { min-height: auto; }
   .tafel { min-height: auto; }
   .unten { grid-template-columns: 1fr 1fr; gap: 1.6em 2.4em; }
@@ -209,6 +245,7 @@ body[data-tab="einkauf"] .seite-energie { display: none; }
 }
 /* ---------- Handy ---------- */
 @media (max-width: 700px) {
+  .tafel-ab .ab { grid-template-columns: 2.6em 1fr auto; font-size: .95em; } .tafel-ab .pl { display: none; }
   body { font-size: 15px; padding-block: .8em 5em; overflow-x: hidden; }
   .tafel > *, .tafel > * > *, .jetzt > div, .unten > div { min-width: 0; }
   .tafel { gap: 1.1em; }
@@ -352,9 +389,29 @@ body[data-tab="einkauf"] .seite-energie { display: none; }
   <footer><span></span><span></span></footer>
 </div>
 
+<div class="tafel seite-mobil">
+  <header>
+    <div><div class="clock" id="clock3">--:--</div><div class="date" id="date3"></div></div>
+    <div class="eyebrow" id="mobil-stand"></div>
+  </header>
+  <section class="mobil">
+    <div>
+      <h2>Bahn &amp; Bus <span>Echtzeit · VRN</span></h2>
+      <div class="halte" id="halte"></div>
+    </div>
+    <div>
+      <h2>Unsere Buchungen <span>FRANKLIN Mobil</span></h2>
+      <ul class="buch" id="buch"><li><span class="leer">Lade …</span></li></ul>
+      <h2 style="margin-top:1.6em">Fahrzeuge in FRANKLIN <span id="fz-n"></span></h2>
+      <ul class="fz" id="fz"><li class="leer">Lade …</li></ul>
+    </div>
+  </section>
+</div>
+
 <div class="tabs" role="tablist">
   <button role="tab" aria-selected="true" data-tab="energie">Energie</button>
   <button role="tab" aria-selected="false" data-tab="einkauf">Einkauf</button>
+  <button role="tab" aria-selected="false" data-tab="mobil">Mobil</button>
 </div>
 
 <script src="einkauf.js"></script>
@@ -771,8 +828,8 @@ function render(data) {
 function uhr() {
   const n = new Date();
   const t = n.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }), d = n.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" });
-  for (const id of ["clock", "clock2"]) document.getElementById(id).textContent = t;
-  for (const id of ["date", "date2"]) document.getElementById(id).textContent = d;
+  for (const id of ["clock", "clock2", "clock3"]) document.getElementById(id).textContent = t;
+  for (const id of ["date", "date2", "date3"]) document.getElementById(id).textContent = d;
 }
 function setTab(name) {
   document.body.dataset.tab = name;
@@ -780,7 +837,50 @@ function setTab(name) {
   try { localStorage.setItem("tab", name); } catch (e) {}
 }
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
-(function () { let t = "energie"; try { t = location.hash === "#einkauf" ? "einkauf" : (localStorage.getItem("tab") || "energie"); } catch (e) {} setTab(t); })();
+(function () { let t = "energie"; try { t = ["#einkauf", "#mobil"].includes(location.hash) ? location.hash.slice(1) : (localStorage.getItem("tab") || "energie"); } catch (e) {} setTab(t); })();
+
+// ---- Mobil ----
+let MOBIL = null;
+const ICON_FZ = {
+  "E-Auto": '<svg viewBox="0 0 24 24"><path d="M3 13l2-5h14l2 5v5H3z"/><path d="M5 13h14M7 18v2M17 18v2"/><circle cx="7.5" cy="15.5" r="1"/><circle cx="16.5" cy="15.5" r="1"/></svg>',
+  "Lastenrad": '<svg viewBox="0 0 24 24"><circle cx="5.5" cy="17" r="3"/><circle cx="18.5" cy="17" r="3"/><path d="M5.5 17l3-7h6l1.5 4M12 10h5l1.5 7M3 10h6v4H4z"/></svg>',
+};
+function renderMobil(m) {
+  if (!m) return;
+  const now = new Date(), age = m.updated ? Math.round((now - new Date(m.updated)) / 60000) : 0;
+  document.getElementById("mobil-stand").textContent = m.updated ? "Stand " + new Date(m.updated).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "";
+  const halte = document.getElementById("halte"); halte.innerHTML = "";
+  const stops = ["Franklin Mitte", "Franklinschule", "Pl. der Freundschaft"];
+  const deps = (m.departures || []).map(d => ({ ...d, left: d.countdown - age })).filter(d => d.left >= 0);
+  for (const st of stops) {
+    const rows = deps.filter(d => d.stop === st).slice(0, window.innerWidth < 700 ? 4 : 6);
+    const html = rows.length ? rows.map(d => { const cls = d.left <= 3 ? "soon" : (d.time !== d.plan ? "late" : "");
+      return `<div class="ab"><span class="ln" data-type="${d.type}">${d.line}</span><span class="dir">→ ${richtung(d.dir)}</span><span class="pl">${d.time !== d.plan ? d.plan + " → " : ""}${d.time}</span><span class="cd ${cls}">${d.left <= 0 ? "jetzt" : d.left + " min"}</span></div>`; }).join("")
+      : '<span class="leer">Keine Abfahrten gemeldet</span>';
+    halte.insertAdjacentHTML("beforeend", `<div><h3>${st} <span>${st === "Pl. der Freundschaft" ? "Linie 5 · Bus" : "Linie 16 · Bus"}</span></h3><div class="tafel-ab">${html}</div></div>`);
+  }
+  const fz = (m.mobil && m.mobil.fahrzeuge) || [], ul = document.getElementById("fz"); ul.innerHTML = "";
+  document.getElementById("fz-n").textContent = fz.length ? `${fz.filter(f => f.frei).length} von ${fz.length} frei` : "";
+  if (!fz.length) ul.innerHTML = '<li class="leer">Keine Fahrzeugdaten</li>';
+  for (const f of fz) ul.insertAdjacentHTML("beforeend", `<li class="${f.frei ? "" : "belegt"}">${ICON_FZ[f.typ] || ICON_FZ["E-Auto"]}<span class="n">${f.name} <small>${f.kennung}${f.ort ? " · " + f.ort : ""}</small></span><span class="st">${f.frei ? "frei" : "belegt"}${f.akku != null ? `<small>${f.akku} %</small>` : ""}</span></li>`);
+  const bl = document.getElementById("buch"); bl.innerHTML = "";
+  const bs = (m.mobil && m.mobil.buchungen) || [];
+  if (!m.mobil || !m.mobil.login) bl.innerHTML = '<li><span class="leer">Kein FRANKLIN-Mobil-Login hinterlegt (FRANKLIN_LOGIN / FRANKLIN_PASS).</span></li>';
+  else if (m.mobil.login_fehler) bl.innerHTML = `<li><span class="leer">Login: ${m.mobil.login_fehler}</span></li>`;
+  else if (!bs.length) bl.innerHTML = '<li><span class="leer">Keine Buchungen</span></li>';
+  for (const b of bs.slice(0, 6)) {
+    const a = new Date(b.start), e = new Date(b.ende), sameDay = a.toDateString() === e.toDateString();
+    const jetzt = a <= now && now <= e;
+    const tag = a.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short" });
+    const z = a.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) + " – " + (sameDay ? "" : e.toLocaleDateString("de-DE", { weekday: "short", day: "numeric" }) + " ") + e.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    bl.insertAdjacentHTML("beforeend", `<li class="${jetzt ? "jetzt" : ""}"><span class="wann">${jetzt ? "jetzt" : tag}<small>${z}</small></span><span class="was">${b.fahrzeug} <small>${b.kennung}${b.ort ? " · " + b.ort : ""}</small></span></li>`);
+  }
+}
+async function ladenMobil() {
+  try { const r = await fetch("mobil.json", { cache: "no-store" }); if (r.ok) MOBIL = await r.json(); } catch (e) {}
+  renderMobil(MOBIL);
+}
+ladenMobil(); setInterval(ladenMobil, 60e3); setInterval(() => renderMobil(MOBIL), 30e3);
 
 // ---- Einkauf ----
 let EINKAUF = { items: [] };
