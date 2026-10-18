@@ -49,7 +49,7 @@ const KAT = [["vorrat","Vorrat · Discounter"],["frisch","Frisch · Markt / Supe
 function render(j){ const ul = document.getElementById("l"); ul.innerHTML = ""; if(!j.items.length){ ul.innerHTML = '<li class="leer">Noch nichts auf der Liste</li>'; return; }
   for(const [k,label] of KAT){ const its = j.items.filter(it => (it.kat||"vorrat") === k); if(!its.length) continue;
     const h = document.createElement("li"); h.className = "kat"; h.textContent = label; ul.appendChild(h);
-    for(const it of its){ const best = (it.offers||[]).filter(o=>!o.soon)[0]; const li = document.createElement("li"); li.innerHTML = `<i></i><span>${it.name}${best?`<small><b>${best.store}</b> ${best.price.toLocaleString("de-DE",{minimumFractionDigits:2})} €</small>`:""}</span>`;
+    for(const it of its){ const best = (it.offers||[]).filter(o=>!o.soon)[0]; const li = document.createElement("li"); li.innerHTML = `<i></i><span>${it.name}${it.q?` <small style="display:inline;opacity:.7">${it.q}</small>`:""}${best?`<small><b>${best.store}</b> ${best.price.toLocaleString("de-DE",{minimumFractionDigits:2})} €</small>`:""}</span>`;
       li.querySelector("i").onclick = async () => { li.classList.add("done"); await send("x " + it.name); }; ul.appendChild(li); } } }
 async function send(text){ const r = await fetch(base + "/einkauf/add", {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:"text="+encodeURIComponent(text)}); if(r.ok) render(await r.json()); }
 initEinkauf({ mount: document.getElementById("ek"), base, onUpdate: render });

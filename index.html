@@ -937,7 +937,7 @@ function renderEinkauf(e) {
   const spalte1 = document.createElement("div"), spalte2 = document.createElement("div");
   KAT.forEach(([k, label], idx) => {
     if (!col[k].length) return;
-    const lis = col[k].map(it => { const best = (it.offers || []).filter(o => !o.soon)[0]; return `<li data-name="${it.name.replace(/"/g, "&quot;")}"><i></i><span>${it.name}${best ? `<small><b>${best.store}</b> ${eur(best.price)}${best.brand ? " · " + best.brand : ""}</small>` : ""}</span></li>`; }).join("");
+    const lis = col[k].map(it => { const best = (it.offers || []).filter(o => !o.soon)[0]; return `<li data-name="${it.name.replace(/"/g, "&quot;")}"><i></i><span>${it.name}${it.q ? ` <small style="display:inline;opacity:.7">${it.q}</small>` : ""}${best ? `<small><b>${best.store}</b> ${eur(best.price)}${best.brand ? " · " + best.brand : ""}</small>` : ""}</span></li>`; }).join("");
     const html = `<div class="gruppe"><h3>${label} <span>${col[k].length}</span></h3><ul class="liste">${lis}</ul></div>`;
     (k === "vorrat" ? spalte1 : spalte2).insertAdjacentHTML("beforeend", html);
   });

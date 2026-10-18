@@ -34,8 +34,45 @@ KATEGORIEN = {
     "drogerie": ["windel", "feuchttücher", "zahnpasta", "zahnbürste", "shampoo", "duschgel", "seife", "deo", "rasier", "creme", "sonnencreme", "wattestäbchen", "taschentücher", "klopapier", "toilettenpapier", "küchenrolle",
                  "spülmittel", "waschmittel", "weichspüler", "spültab", "putz", "reiniger", "müllbeutel", "schwamm", "alufolie", "frischhaltefolie", "backpapier", "batterie", "glühbirne", "kerze", "blumen"],
 }
+
+# Englisch → Deutsch für Suche und Einordnung (Julia schreibt auch auf Englisch). Längere Begriffe zuerst.
+EN_DE = {
+ "whole milk": "Vollmilch", "oat milk": "Hafermilch", "almond milk": "Mandelmilch", "milk": "Milch", "eggs": "Eier", "egg": "Eier", "butter": "Butter", "cheese": "Käse", "cream cheese": "Frischkäse",
+ "yogurt": "Joghurt", "yoghurt": "Joghurt", "cream": "Sahne", "sour cream": "Schmand", "quark": "Quark", "bread": "Brot", "rolls": "Brötchen", "bread rolls": "Brötchen", "toast": "Toast", "flour": "Mehl", "sugar": "Zucker",
+ "salt": "Salz", "pepper": "Pfeffer", "rice": "Reis", "pasta": "Nudeln", "noodles": "Nudeln", "spaghetti": "Spaghetti", "oats": "Haferflocken", "oatmeal": "Haferflocken", "cereal": "Müsli", "muesli": "Müsli",
+ "coffee": "Kaffee", "tea": "Tee", "cocoa": "Kakao", "juice": "Saft", "apple juice": "Apfelsaft", "orange juice": "Orangensaft", "water": "Wasser", "sparkling water": "Sprudel", "beer": "Bier", "wine": "Wein",
+ "apples": "Äpfel", "apple": "Apfel", "bananas": "Bananen", "banana": "Banane", "pears": "Birnen", "grapes": "Trauben", "strawberries": "Erdbeeren", "raspberries": "Himbeeren", "blueberries": "Blaubeeren",
+ "lemons": "Zitronen", "lemon": "Zitrone", "limes": "Limetten", "oranges": "Orangen", "mandarins": "Mandarinen", "mango": "Mango", "melon": "Melone", "kiwi": "Kiwi", "peaches": "Pfirsiche", "plums": "Pflaumen", "cherries": "Kirschen", "fruit": "Obst",
+ "tomatoes": "Tomaten", "tomato": "Tomaten", "cucumber": "Gurke", "lettuce": "Salat", "salad": "Salat", "peppers": "Paprika", "bell pepper": "Paprika", "onions": "Zwiebeln", "onion": "Zwiebel", "garlic": "Knoblauch",
+ "potatoes": "Kartoffeln", "potato": "Kartoffeln", "carrots": "Karotten", "carrot": "Karotten", "broccoli": "Brokkoli", "cauliflower": "Blumenkohl", "zucchini": "Zucchini", "courgette": "Zucchini", "eggplant": "Aubergine", "aubergine": "Aubergine",
+ "spinach": "Spinat", "mushrooms": "Champignons", "leek": "Lauch", "herbs": "Kräuter", "parsley": "Petersilie", "basil": "Basilikum", "avocado": "Avocado", "vegetables": "Gemüse", "veggies": "Gemüse", "sweet potato": "Süßkartoffel", "corn": "Mais", "peas": "Erbsen", "beans": "Bohnen",
+ "chicken": "Hähnchen", "chicken breast": "Hähnchenbrust", "turkey": "Pute", "beef": "Rindfleisch", "pork": "Schweinefleisch", "minced meat": "Hackfleisch", "ground beef": "Hackfleisch", "mince": "Hackfleisch", "meat": "Fleisch", "sausage": "Wurst", "sausages": "Würstchen", "ham": "Schinken", "bacon": "Speck", "salami": "Salami",
+ "fish": "Fisch", "salmon": "Lachs", "tuna": "Thunfisch", "shrimp": "Garnelen", "prawns": "Garnelen", "tofu": "Tofu",
+ "ketchup": "Ketchup", "mustard": "Senf", "mayo": "Mayonnaise", "mayonnaise": "Mayonnaise", "olive oil": "Olivenöl", "oil": "Öl", "vinegar": "Essig", "honey": "Honig", "jam": "Marmelade", "peanut butter": "Erdnussbutter", "chocolate spread": "Nussnougatcreme", "nutella": "Nutella",
+ "chocolate": "Schokolade", "cookies": "Kekse", "biscuits": "Kekse", "crisps": "Chips", "chips": "Chips", "gummy bears": "Gummibärchen", "sweets": "Süßigkeiten", "candy": "Süßigkeiten", "ice cream": "Eis", "pizza": "Pizza", "fries": "Pommes", "fish fingers": "Fischstäbchen", "fish sticks": "Fischstäbchen",
+ "canned tomatoes": "Dosentomaten", "chopped tomatoes": "Dosentomaten", "tomato paste": "Tomatenmark", "chickpeas": "Kichererbsen", "lentils": "Linsen", "coconut milk": "Kokosmilch", "stock": "Brühe", "broth": "Brühe", "pesto": "Pesto", "soy sauce": "Sojasoße",
+ "diapers": "Windeln", "nappies": "Windeln", "wipes": "Feuchttücher", "baby wipes": "Feuchttücher", "baby food": "Babynahrung", "formula": "Babymilch", "toothpaste": "Zahnpasta", "toothbrush": "Zahnbürste", "shampoo": "Shampoo", "shower gel": "Duschgel", "soap": "Seife", "deodorant": "Deo", "deo": "Deo",
+ "razor": "Rasierer", "razor blades": "Rasierklingen", "lotion": "Creme", "sunscreen": "Sonnencreme", "cotton buds": "Wattestäbchen", "tissues": "Taschentücher", "toilet paper": "Toilettenpapier", "loo roll": "Toilettenpapier", "kitchen roll": "Küchenrolle", "paper towels": "Küchenrolle",
+ "dish soap": "Spülmittel", "washing up liquid": "Spülmittel", "dishwasher tabs": "Spültabs", "laundry detergent": "Waschmittel", "detergent": "Waschmittel", "fabric softener": "Weichspüler", "cleaner": "Reiniger", "bin bags": "Müllbeutel", "trash bags": "Müllbeutel", "sponges": "Schwämme", "sponge": "Schwamm",
+ "foil": "Alufolie", "aluminium foil": "Alufolie", "cling film": "Frischhaltefolie", "baking paper": "Backpapier", "batteries": "Batterien", "light bulb": "Glühbirne", "candles": "Kerzen", "flowers": "Blumen", "cat food": "Katzenfutter", "dog food": "Hundefutter",
+}
+_EN_KEYS = sorted(EN_DE, key=len, reverse=True)
+_EN_FUELL = re.compile(r"^(some|a|an|the|pack of|bag of|bottle of|box of|two|three|\d+)\s+", re.I)
+
+def deutsch(name):
+    """Englischen Artikelnamen ins Deutsche übersetzen (für Angebotssuche/Kategorie). Unbekanntes bleibt wie es ist."""
+    low = name.lower().strip()
+    core = _EN_FUELL.sub("", low)
+    for k in _EN_KEYS:
+        if re.search(r"(?<![a-z])" + re.escape(k) + r"(?![a-z])", core):
+            return EN_DE[k]
+    return name
+
+def suchbegriff(item):
+    return item.get("q") or deutsch(item["name"])
+
 def kategorie(name):
-    n = name.lower()
+    n = deutsch(name).lower()
     if any(re.search(r"(?<![a-zäöüß])" + re.escape(w), n) for w in VORRAT_WOERTER if w not in ("spinat", "windeln", "feuchttücher", "klopapier", "toilettenpapier")):
         return "vorrat"
     for kat, woerter in KATEGORIEN.items():
@@ -123,7 +160,11 @@ def apply_message(state, text, who):
         if not name or len(name) > 60:
             continue
         if not any(i["name"].lower() == name.lower() for i in items):
-            items.append({"name": name, "kat": kat or kategorie(name), "by": who, "at": dt.datetime.now().isoformat(timespec="minutes")}); added.append(name)
+            it = {"name": name, "kat": kat or kategorie(name), "by": who, "at": dt.datetime.now().isoformat(timespec="minutes")}
+            d = deutsch(name)
+            if d.lower() != name.lower():
+                it["q"] = d                               # deutscher Suchbegriff für Angebote, z. B. "milk" → "Milch"
+            items.append(it); added.append(name)
     return ("Dazu: " + ", ".join(added)) if added else "Steht schon drauf."
 
 def search_offers(q, limit=6):
@@ -154,7 +195,7 @@ def refresh_offers(state, max_age_h=6):
     offers = {}
     for i in state["items"]:
         try:
-            offers[i["name"]] = search_offers(i["name"])
+            offers[i["name"]] = search_offers(suchbegriff(i))
         except Exception as e:
             print("Angebote:", i["name"], e, file=sys.stderr)
     state["offers"] = offers; state["offers_at"] = time.time()
