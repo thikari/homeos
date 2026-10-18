@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Minimaler Webserver für die Energie-Tafel.
 Liefert www/ nur unter dem geheimen Pfad /<TAFEL_TOKEN>/ aus, alles andere 404. Keine Caches, damit data.json immer frisch ist."""
-import os, sys, re, http.server, posixpath, json, urllib.parse, importlib.util, threading
+import os, sys, re, http.server, posixpath, json, urllib.parse, importlib.util, threading, hmac, hashlib, time
 
 TOKEN = os.environ.get("TAFEL_TOKEN", "").strip("/")
 PORT = int(os.environ.get("TAFEL_PORT", "8787"))
 ROOT = os.path.abspath(os.environ.get("TAFEL_ROOT", "."))
 if not TOKEN:
     sys.exit("TAFEL_TOKEN fehlt")
+PIN = os.environ.get("TAFEL_PIN", "").strip()                 # Passwort für die Anmeldeseite; leer = nur der geheime Pfad
+COOKIE_SECRET = hashlib.sha256((TOKEN + "|" + PIN).encode()).hexdigest()   # Cookie-Wert; ändert sich mit PIN oder Token
+COOKIE_AGE = 365 * 24 * 3600
 HERE = os.path.dirname(os.path.abspath(__file__))
 _spec = importlib.util.spec_from_file_location("einkauf", os.path.join(HERE, "einkauf.py")); EINKAUF = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(EINKAUF)
 LOCK = threading.Lock()
@@ -125,26 +128,59 @@ def gesprochen_zerlegen(text):
             print("sprache/claude:", e, flush=True)
     return EINKAUF.zerlege_gesprochen(t)
 
+LOGIN_PAGE = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Franklin Tafel</title>
+<style>:root{--fg:#0f2a4a;--muted:#5f7691;--line:#d9e3ee;--bad:#2a6fdb}body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:-apple-system,"Manrope",system-ui,sans-serif;color:var(--fg);background:#fff}
+form{width:min(22em,90vw);display:grid;gap:.8em}h1{margin:0 0 .2em;font-size:1.1rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+input{font:inherit;font-size:1.6rem;letter-spacing:.3em;text-align:center;padding:.6em;border:1.5px solid var(--line);border-radius:14px}button{font:inherit;font-weight:700;font-size:1.05rem;padding:.8em;border:0;border-radius:14px;background:var(--fg);color:#fff}
+p{color:var(--bad);font-size:.9rem;min-height:1.2em;margin:0}</style></head><body>
+<form method="post" action="login"><h1>Franklin Tafel</h1><input name="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" autofocus required><button>Öffnen</button><p>__MSG__</p></form>
+</body></html>"""
+
 class H(http.server.SimpleHTTPRequestHandler):
     extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".html": "text/html; charset=utf-8", ".json": "application/json; charset=utf-8"}
     def __init__(self, *a, **k):
         super().__init__(*a, directory=ROOT, **k)
-    def translate_path(self, path):
-        path = path.split("?", 1)[0].split("#", 1)[0]
+    # --- Zugang: geheimer Pfad /<TOKEN>/... ODER Cookie nach PIN-Eingabe auf der Startseite ---
+    def _cookie_ok(self):
+        c = self.headers.get("Cookie", "")
+        m = re.search(r"(?:^|;\s*)tafel=([0-9a-f]+)", c)
+        return bool(m) and hmac.compare_digest(m[1], COOKIE_SECRET)
+    def _rel(self):
+        """Pfad ohne Token-Präfix, oder None wenn kein Zugang."""
+        path = self.path.split("?", 1)[0].split("#", 1)[0]
         prefix = "/" + TOKEN
-        if path != prefix and not path.startswith(prefix + "/"):
+        if path == prefix or path.startswith(prefix + "/"):
+            return path[len(prefix):] or "/"
+        if self._cookie_ok():
+            return path
+        return None
+    def translate_path(self, path):
+        rel = self._rel()
+        if rel is None:
             return os.path.join(ROOT, "__forbidden__")
-        rel = path[len(prefix):] or "/"
         if rel == "/":
             rel = "/index.html"
         rel = posixpath.normpath(rel)
         full = os.path.join(ROOT, rel.lstrip("/"))
         return full if full.startswith(ROOT) else os.path.join(ROOT, "__forbidden__")
     def _einkauf_path(self):
-        path = self.path.split("?", 1)[0]
-        prefix = "/" + TOKEN + "/einkauf"
-        return path[len(prefix):] if path.startswith(prefix) else None
+        rel = self._rel()
+        return rel[len("/einkauf"):] if rel and rel.startswith("/einkauf") else None
+    def _html(self, body, code=200, extra=()):
+        b = body.encode("utf-8")
+        self.send_response(code)
+        for k, v in extra:
+            self.send_header(k, v)
+        self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
     def do_GET(self):
+        rel = self._rel()
+        if rel is None:
+            path = self.path.split("?", 1)[0]
+            if PIN and path in ("/", "/index.html", "/einkauf", "/einkauf/", "/login"):
+                return self._html(LOGIN_PAGE.replace("__MSG__", ""))
+            self.send_response(404); self.end_headers(); return
+        if rel == "/logout":
+            return self._html("<meta http-equiv=refresh content='0;url=/'>Abgemeldet.", extra=[("Set-Cookie", "tafel=; Max-Age=0; Path=/")])
         sub = self._einkauf_path()
         if sub in ("", "/"):
             body = PHONE_PAGE.encode("utf-8")
@@ -155,6 +191,14 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._json(ean_lookup(sub[5:]))
         super().do_GET()
     def do_POST(self):
+        if self.path.split("?", 1)[0] == "/login":
+            n = int(self.headers.get("Content-Length") or 0)
+            pin = urllib.parse.parse_qs(self.rfile.read(min(n, 4096)).decode("utf-8", "ignore")).get("pin", [""])[0]
+            if PIN and hmac.compare_digest(pin.encode(), PIN.encode()):
+                secure = "; Secure" if self.headers.get("X-Forwarded-Proto", "https") == "https" else ""
+                return self._html("<meta http-equiv=refresh content='0;url=/'>Willkommen.", extra=[("Set-Cookie", f"tafel={COOKIE_SECRET}; Max-Age={COOKIE_AGE}; Path=/; HttpOnly; SameSite=Lax{secure}")])
+            time.sleep(1.5)                               # bremst Durchprobieren
+            return self._html(LOGIN_PAGE.replace("__MSG__", "Falsche PIN."), code=401)
         sub = self._einkauf_path()
         if sub not in ("/add", "/photo"):
             self.send_response(404); self.end_headers(); return

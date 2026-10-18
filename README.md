@@ -93,3 +93,7 @@ Kamera und Mikrofon verlangen HTTPS (Railway hat das) und einmalig die Freigabe 
 - **Bahn & Bus** – alle Abfahrten der drei Haltestellen (Franklin Mitte, Franklinschule, Platz der Freundschaft) mit Echtzeit, Verspätung und Richtung.
 - **FRANKLIN Mobil** – Fahrzeuge im Quartier (E-Autos, Lastenräder) mit Standort, Akku und ob sie in den nächsten 2 h frei sind. Quelle: Cantamen-CASIREST-API hinter buchung.franklin-mobil.de (öffentlicher Web-App-Key, kein Login nötig).
 - **Unsere Buchungen** – eigene Buchungen der nächsten 60 Tage. Dafür in Railway `FRANKLIN_LOGIN` und `FRANKLIN_PASS` setzen (die Zugangsdaten der FRANKLIN-Mobil-App). Das Login-Token wird neben `einkauf_state.json` gecacht.
+
+## Zugang mit PIN
+
+Mit `TAFEL_PIN` (Railway-Variable) zeigt die Startseite `https://<domain>/` eine PIN-Abfrage. Nach richtiger Eingabe setzt der Server ein Cookie für ein Jahr; danach funktionieren `/`, `/einkauf/` und alle Daten ohne Token im Pfad. `/logout` löscht das Cookie. Der geheime Pfad `/<TAFEL_TOKEN>/…` funktioniert parallel weiter (für den Rahmen im Kiosk-Modus). Ohne `TAFEL_PIN` gibt es nur den Token-Pfad. Falsche PINs werden mit 1,5 s Verzögerung beantwortet; Token oder PIN ändern macht alle Cookies ungültig.
