@@ -338,6 +338,7 @@ body[data-tab="einkauf"] .seite-energie { display: none; }
   <section class="einkauf">
     <div>
       <h2>Einkaufsliste <span id="einkauf-n"></span></h2>
+      <div id="ek"></div>
       <div class="gruppen" id="gruppen"><ul class="liste" id="liste"><li class="leer">Noch nichts auf der Liste</li></ul></div>
       <p class="hinweis" id="einkauf-hinweis"></p>
     </div>
@@ -354,6 +355,7 @@ body[data-tab="einkauf"] .seite-energie { display: none; }
   <button role="tab" aria-selected="false" data-tab="einkauf">Einkauf</button>
 </div>
 
+<script src="einkauf.js"></script>
 <script>
 // Endhaltestelle → verständliche Richtung (Rest fällt auf den Endhaltestellen-Namen zurück)
 const RICHTUNG = {
@@ -792,10 +794,12 @@ function renderEinkauf(e) {
   const spalte1 = document.createElement("div"), spalte2 = document.createElement("div");
   KAT.forEach(([k, label], idx) => {
     if (!col[k].length) return;
-    const lis = col[k].map(it => { const best = (it.offers || []).filter(o => !o.soon)[0]; return `<li><span>${it.name}${best ? `<small><b>${best.store}</b> ${eur(best.price)}${best.brand ? " · " + best.brand : ""}</small>` : ""}</span></li>`; }).join("");
+    const lis = col[k].map(it => { const best = (it.offers || []).filter(o => !o.soon)[0]; return `<li data-name="${it.name.replace(/"/g, "&quot;")}"><span>${it.name}${best ? `<small><b>${best.store}</b> ${eur(best.price)}${best.brand ? " · " + best.brand : ""}</small>` : ""}</span></li>`; }).join("");
     const html = `<div class="gruppe"><h3>${label} <span>${col[k].length}</span></h3><ul class="liste">${lis}</ul></div>`;
     (k === "vorrat" ? spalte1 : spalte2).insertAdjacentHTML("beforeend", html);
   });
+  gr.onclick = async (ev) => { const li = ev.target.closest("li[data-name]"); if (!li) return; li.style.opacity = ".35"; li.style.textDecoration = "line-through";
+    try { const r = await fetch("einkauf/add", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "text=" + encodeURIComponent("x " + li.dataset.name) }); if (r.ok) { EINKAUF = await r.json(); renderEinkauf(EINKAUF); } } catch (e) {} };
   if (items.length) { gr.appendChild(spalte1); gr.appendChild(spalte2); }
   const ang = document.getElementById("angebote"); ang.innerHTML = "";
   const all = [];
@@ -805,13 +809,14 @@ function renderEinkauf(e) {
     ang.insertAdjacentHTML("beforeend", `<div class="angebot"><div><div class="store">${o.store}${o.soon ? " · ab " + new Date(o.from + "T00:00").toLocaleDateString("de-DE", { weekday: "short" }) : ""}</div><div class="p">${o.brand ? o.brand + " " : ""}${o.product} <small>· ${o.desc || ""}</small></div></div><div class="pr"><b>${eur(o.price)}</b>${o.old ? ` <s>${eur(o.old)}</s>` : ""}${o.unit ? `<br><small>je ${o.unit}</small>` : ""}</div></div>`);
   }
   document.getElementById("einkauf-stand").textContent = e.updated ? "Stand " + e.updated.replace("T", " ") : "";
-  document.getElementById("einkauf-hinweis").innerHTML = 'Handy-Seite <code>…/einkauf/</code>: <code>Milch, Eier</code> fügt hinzu · Antippen hakt ab · <code>frisch: Käse</code> oder <code>vorrat: …</code> legt die Gruppe fest.';
+  document.getElementById("einkauf-hinweis").innerHTML = 'Antippen hakt ab · Handy-Seite <code>…/einkauf/</code> aufs Homescreen legen · <code>frisch: Käse</code> legt die Gruppe fest.';
 }
 async function ladenEinkauf() {
   try { const r = await fetch("einkauf.json", { cache: "no-store" }); if (r.ok) EINKAUF = await r.json(); } catch (e) {}
   renderEinkauf(EINKAUF);
 }
 ladenEinkauf(); setInterval(ladenEinkauf, 60e3);
+if (window.initEinkauf) initEinkauf({ mount: document.getElementById("ek"), base: location.pathname.replace(/\/$/, ""), onUpdate: (j) => { EINKAUF = j; renderEinkauf(j); } });
 let DATA = { live:{}, month:null, events:[] };
 async function laden() {
   try { const r = await fetch("data.json", { cache: "no-store" }); if (r.ok) DATA = await r.json(); } catch (e) {}

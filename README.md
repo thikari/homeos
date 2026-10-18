@@ -73,3 +73,15 @@ In `index.html` oben im Script: `ZIEL` (Jahresziele) und `SAISON` (Monatsanteile
 
 ## Hinweis Portal
 Die Seite `downloadConsumption.php` gibt im Quelltext Sitzungsdaten inkl. Passwort-Hash aus (PHP-Debug-Ausgabe). Das ist ein Fehler auf enocoo-Seite – lohnt eine kurze Meldung an enocoo.
+
+## Einkaufsliste: Tippen · Sprechen · Foto · Barcode
+
+Die Eingabe-Leiste (`einkauf.js`) gibt es auf der Handy-Seite `/<token>/einkauf/` und im Tab **Einkauf** auf der Tafel (iPad = Touch):
+
+- **Tippen** – Textfeld; `Milch, Eier` fügt hinzu, `x Milch` hakt ab, `frisch: Käse` / `vorrat …` / `drogerie …` legt die Gruppe fest (auch pro Artikel in einer Zeile).
+- **Sprechen** – Spracherkennung des Browsers (Safari/Chrome, de-DE), „und" wird zum Komma. Kein Server nötig.
+- **Foto** – Kamera/Fotoauswahl, das Bild wird auf 1024 px verkleinert und an `POST /<token>/einkauf/photo` geschickt; der Server fragt die Claude-API (`ANTHROPIC_API_KEY` in Railway setzen, Modell über `TAFEL_VISION_MODEL`, Standard `claude-haiku-5-5`). Ergebnis: Vorschläge zum Antippen. Ohne Schlüssel meldet der Button das.
+- **Barcode** – Kamera-Scanner (ZXing von jsDelivr), EAN → `GET /<token>/einkauf/ean/<code>` → Open Food Facts / Open Beauty Facts / Open Products Facts → Produktname als Vorschlag.
+- Antippen eines Artikels hakt ihn ab – auf dem Handy und auf der Tafel.
+
+Kamera und Mikrofon verlangen HTTPS (Railway hat das) und einmalig die Freigabe im Browser.

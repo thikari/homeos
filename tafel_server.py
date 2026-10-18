@@ -20,7 +20,6 @@ body{margin:0;font-family:-apple-system,"Manrope",system-ui,sans-serif;color:var
 h1{font-size:1.1rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:1.2rem 0 .8rem}
 form{display:flex;gap:.5rem;margin-bottom:1rem}
 input{flex:1;font:inherit;font-size:1.1rem;padding:.75rem .9rem;border:1.5px solid var(--line);border-radius:12px;min-width:0}
-button{font:inherit;font-weight:700;padding:.75rem 1.1rem;border:0;border-radius:12px;background:var(--fg);color:#fff}
 ul{list-style:none;margin:0;padding:0}
 li{display:flex;align-items:center;gap:.8rem;padding:.8rem 0;border-bottom:1px solid var(--line);font-size:1.15rem;font-weight:600}
 li i{width:1.3rem;height:1.3rem;border:2px solid var(--line);border-radius:6px;flex:none}
@@ -34,9 +33,10 @@ li.kat{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(
 .row a{color:var(--bad);font-size:.9rem;text-decoration:none}
 </style></head><body>
 <div class="row"><h1>Einkaufsliste</h1><a href="#" id="clear">leeren</a></div>
-<form id="f"><input id="t" placeholder="Milch, Eier, Windeln …" autocomplete="off" autofocus><button>Dazu</button></form>
+<div id="ek"></div>
 <ul id="l"><li class="leer">Lade …</li></ul>
-<p class="hint">Mehrere Artikel mit Komma trennen. Antippen hakt ab. Gruppe erzwingen: „frisch: Käse" oder „vorrat: …".</p>
+<p class="hint">Antippen hakt ab. Tippen · Sprechen · Foto · Barcode – alles landet auf der Liste, die auch auf der Tafel steht.</p>
+<script src="../einkauf.js"></script>
 <script>
 const base = location.pathname.replace(/\/einkauf\/?$/, "");
 async function load(){ const r = await fetch(base + "/einkauf.json", {cache:"no-store"}); const j = await r.json(); render(j); }
@@ -47,10 +47,56 @@ function render(j){ const ul = document.getElementById("l"); ul.innerHTML = ""; 
     for(const it of its){ const best = (it.offers||[]).filter(o=>!o.soon)[0]; const li = document.createElement("li"); li.innerHTML = `<i></i><span>${it.name}${best?`<small><b>${best.store}</b> ${best.price.toLocaleString("de-DE",{minimumFractionDigits:2})} €</small>`:""}</span>`;
       li.onclick = async () => { li.classList.add("done"); await send("x " + it.name); }; ul.appendChild(li); } } }
 async function send(text){ const r = await fetch(base + "/einkauf/add", {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:"text="+encodeURIComponent(text)}); if(r.ok) render(await r.json()); }
-document.getElementById("f").onsubmit = async e => { e.preventDefault(); const t = document.getElementById("t"); if(!t.value.trim()) return; const v = t.value; t.value = ""; await send(v); };
+initEinkauf({ mount: document.getElementById("ek"), base, onUpdate: render });
 document.getElementById("clear").onclick = async e => { e.preventDefault(); if(document.getElementById("clear").dataset.ok){ await send("leer"); delete document.getElementById("clear").dataset.ok; document.getElementById("clear").textContent="leeren"; } else { document.getElementById("clear").dataset.ok="1"; document.getElementById("clear").textContent="wirklich leeren?"; setTimeout(()=>{delete document.getElementById("clear").dataset.ok; document.getElementById("clear").textContent="leeren";},3000);} };
 load(); setInterval(load, 30000);
 </script></body></html>"""
+
+def ean_lookup(code):
+    """Barcode → Produktname über Open Food Facts (Lebensmittel) und Open Beauty/Products Facts (Drogerie)."""
+    code = "".join(ch for ch in code if ch.isdigit())[:14]
+    if not code:
+        return {"name": None}
+    import urllib.request
+    for host in ("world.openfoodfacts.org", "world.openbeautyfacts.org", "world.openproductsfacts.org"):
+        try:
+            req = urllib.request.Request(f"https://{host}/api/v2/product/{code}.json?fields=product_name,product_name_de,brands,quantity", headers={"User-Agent": "FranklinTafel/1.0 (einkaufsliste)"})
+            with urllib.request.urlopen(req, timeout=8) as r:
+                j = json.load(r)
+        except Exception:
+            continue
+        p = j.get("product") or {}
+        name = (p.get("product_name_de") or p.get("product_name") or "").strip()
+        if not name:
+            continue
+        brand = (p.get("brands") or "").split(",")[0].strip()
+        qty = (p.get("quantity") or "").strip()
+        full = " ".join(x for x in (brand if brand and brand.lower() not in name.lower() else "", name, qty if qty and qty.lower() not in name.lower() else "") if x)
+        return {"name": full, "ean": code}
+    return {"name": None, "ean": code}
+
+def photo_items(b64):
+    """Foto → Liste von Produktnamen über die Claude-API (Schlüssel ANTHROPIC_API_KEY)."""
+    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not key:
+        return {"error": "Foto-Erkennung ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt in Railway)."}
+    if not b64:
+        return {"error": "Kein Bild erhalten."}
+    import urllib.request
+    prompt = ("Das ist ein Foto aus einem Haushalt in Deutschland: ein Produkt, eine Verpackung, ein Kühlschrank- oder Vorratsregal oder ein handgeschriebener Zettel. "
+              "Nenne die Lebensmittel bzw. Haushaltsartikel, die man auf eine Einkaufsliste setzen würde – bei einer Verpackung das Produkt (kurz, wie man es auf eine Liste schreibt, z. B. 'Haltbare Milch 1,5 %'), "
+              "bei einem Zettel die aufgeschriebenen Artikel, bei einem Regal die erkennbaren Produkte. Antworte NUR mit einem JSON-Array aus Strings auf Deutsch, maximal 12 Einträge, keine Erklärung.")
+    body = {"model": os.environ.get("TAFEL_VISION_MODEL", "claude-haiku-5-5"), "max_tokens": 300,
+            "messages": [{"role": "user", "content": [{"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}}, {"type": "text", "text": prompt}]}]}
+    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=json.dumps(body).encode(), method="POST",
+                                 headers={"x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=40) as r:
+        j = json.load(r)
+    text = "".join(c.get("text", "") for c in j.get("content", []))
+    m = text[text.find("["): text.rfind("]") + 1]
+    items = json.loads(m) if m else []
+    items = [str(x).strip() for x in items if str(x).strip()][:12]
+    return {"items": items}
 
 class H(http.server.SimpleHTTPRequestHandler):
     extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".html": "text/html; charset=utf-8", ".json": "application/json; charset=utf-8"}
@@ -78,16 +124,28 @@ class H(http.server.SimpleHTTPRequestHandler):
             self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body); return
         if sub == "/add" and "text=" in (self.path.split("?", 1) + [""])[1]:
             return self._apply(urllib.parse.parse_qs(self.path.split("?", 1)[1]).get("text", [""])[0])
+        if sub and sub.startswith("/ean/"):
+            return self._json(ean_lookup(sub[5:]))
         super().do_GET()
     def do_POST(self):
         sub = self._einkauf_path()
-        if sub != "/add":
+        if sub not in ("/add", "/photo"):
             self.send_response(404); self.end_headers(); return
         n = int(self.headers.get("Content-Length") or 0)
+        if n > 6_000_000:
+            self.send_response(413); self.end_headers(); return
         raw = self.rfile.read(n).decode("utf-8", "ignore")
         ctype = self.headers.get("Content-Type", "")
+        if sub == "/photo":
+            try:
+                return self._json(photo_items(json.loads(raw).get("image", "")))
+            except Exception as e:
+                return self._json({"error": f"Foto-Erkennung fehlgeschlagen: {e}"})
         text = json.loads(raw).get("text", "") if "json" in ctype else urllib.parse.parse_qs(raw).get("text", [""])[0]
         self._apply(text)
+    def _json(self, obj, code=200):
+        body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        self.send_response(code); self.send_header("Content-Type", "application/json; charset=utf-8"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
     def _apply(self, text):
         with LOCK:
             state = EINKAUF.load()

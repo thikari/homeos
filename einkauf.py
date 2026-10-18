@@ -64,11 +64,15 @@ def apply_message(state, text, who):
     if mk:
         forced = {"discounter": "vorrat", "haushalt": "drogerie"}.get(mk[1].lower(), mk[1].lower()); t = mk[2]
     for part in re.split(r"[,\n;]+", t):
+        kat = forced
+        pm = re.match(r"^\s*(frisch|vorrat|discounter|drogerie|haushalt)\s*:?\s+(.+)$", part, re.I)
+        if pm:
+            kat = {"discounter": "vorrat", "haushalt": "drogerie"}.get(pm[1].lower(), pm[1].lower()); part = pm[2]
         name = norm(part)
         if not name or len(name) > 60:
             continue
         if not any(i["name"].lower() == name.lower() for i in items):
-            items.append({"name": name, "kat": forced or kategorie(name), "by": who, "at": dt.datetime.now().isoformat(timespec="minutes")}); added.append(name)
+            items.append({"name": name, "kat": kat or kategorie(name), "by": who, "at": dt.datetime.now().isoformat(timespec="minutes")}); added.append(name)
     return ("Dazu: " + ", ".join(added)) if added else "Steht schon drauf."
 
 def search_offers(q, limit=6):

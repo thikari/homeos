@@ -7,6 +7,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WWW = os.path.join(HERE, "www")
 os.makedirs(WWW, exist_ok=True)
 shutil.copy(os.path.join(HERE, "index.html"), os.path.join(WWW, "index.html"))
+shutil.copy(os.path.join(HERE, "einkauf.js"), os.path.join(WWW, "einkauf.js"))
 INTERVAL = int(os.environ.get("FETCH_INTERVAL", "300"))
 
 def fetch_loop():
