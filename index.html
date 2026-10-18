@@ -3,7 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Franklin Energie-Tafel</title>
+<title>homeOS</title>
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="homeOS">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -38,16 +45,6 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .clock { font-weight: 800; font-size: 2em; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .date { color: var(--muted); margin-top: .25em; }
 .kopfrechts { display: flex; align-items: flex-start; gap: 2.4em; }
-.abfahrten { display: grid; gap: .2em; min-width: 0; }
-.abfahrten .ab { display: grid; grid-template-columns: 2.6em 1fr auto; gap: .6em; align-items: baseline; font-size: .84em; }
-.abfahrten .ln { font-weight: 800; color: #fff; background: var(--bad); border-radius: 4px; padding: .05em .35em; text-align: center; font-size: .85em; }
-.abfahrten .ln[data-type="Bus"] { background: var(--fg); }
-.abfahrten .dir { color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.abfahrten .dir small { color: var(--muted); }
-.abfahrten .cd { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; white-space: nowrap; }
-.abfahrten .cd.soon { color: var(--good); }
-.abfahrten .cd.late { color: var(--warn); }
-.abfahrten .leer { color: var(--muted); font-size: .85em; }
 .wx-now { display: flex; align-items: center; gap: .7em; text-align: right; }
 .wx-now svg { width: 2.6em; height: 2.6em; color: var(--bad); }
 .wx-now .t { font-weight: 800; font-size: 1.7em; line-height: 1; letter-spacing: -.02em; }
@@ -220,7 +217,7 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
 .liste li.leer i { display: none; }
 .liste li small { display: block; font-size: .62em; font-weight: 500; color: var(--muted); }
 .liste li small b { color: var(--good); font-weight: 700; }
-.liste .leer { color: var(--muted); font-weight: 500; font-size: 1em; border: 0; }
+.liste .leer { display: block; color: var(--muted); font-weight: 500; font-size: 1em; border: 0; }
 .liste .leer::before { display: none; }
 .angebote { display: grid; gap: .55em; }
 .angebot { display: grid; grid-template-columns: 1fr auto; gap: .8em; align-items: baseline; padding: .45em 0; border-bottom: 1px solid var(--line); }
@@ -255,10 +252,6 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
   .tafel { gap: 1.1em; }
   header { flex-direction: column; align-items: stretch; gap: .8em; }
   .kopfrechts { flex-direction: row; justify-content: space-between; align-items: flex-start; gap: 1em; }
-  .abfahrten { gap: .35em; flex: 1; }
-  .abfahrten .ab { grid-template-columns: 2.4em 1fr auto; font-size: .9em; }
-  .abfahrten .dir { white-space: normal; line-height: 1.25; }
-  .abfahrten .dir small { display: block; }
   .wx-now { flex: none; }
   .jetzt { grid-template-columns: auto 1fr; gap: 1em; align-items: start; }
   .ampel { gap: .35em; padding-top: .2em; }
@@ -298,7 +291,6 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
   <header>
     <div><div class="clock" id="clock">--:--</div><div class="date" id="date"></div></div>
     <div class="kopfrechts">
-      <div class="abfahrten" id="abfahrten" hidden></div>
       <div class="wx-now" id="wxnow" hidden><div><div class="t" id="wx-t">–</div><div class="d" id="wx-d"></div></div><span id="wx-i"></span></div>
     </div>
   </header>
@@ -781,16 +773,6 @@ function render(data) {
   const prog = gez > 0 ? bs.ist / gez * tage : null;
   document.getElementById("kpi-line").textContent = `Ø 7 Tage ${fmt(data.week_avg_strom_kwh, 1)} kWh` + (prog != null ? ` · Monatsprognose ${fmt(prog)} / ${fmt(bs.monatsziel)} kWh` : "");
 
-  // Abfahrten (nur die nächsten 4, innerhalb von 60 Minuten; Countdown relativ zum Datenstand)
-  const ab = document.getElementById("abfahrten"); ab.innerHTML = "";
-  const age = data.updated ? Math.round((now - new Date(data.updated)) / 60000) : 0;
-  const deps = (data.departures || []).map(d => ({ ...d, left: d.countdown - age })).filter(d => d.left >= 0 && d.left <= 60).slice(0, 4);
-  if (!deps.length) ab.innerHTML = '<span class="leer">Keine Abfahrten in der nächsten Stunde</span>';
-  for (const d of deps) {
-    const cls = d.left <= 3 ? "soon" : (d.time !== d.plan ? "late" : "");
-    ab.insertAdjacentHTML("beforeend", `<div class="ab"><span class="ln" data-type="${d.type}">${d.line}</span><span class="dir">→ ${richtung(d.dir)} <small>· ab ${d.stop}</small></span><span class="cd ${cls}">${d.left <= 0 ? "jetzt" : d.left + " min"}</span></div>`);
-  }
-
   // Kosten in Euro
   const C = data.cost, eu = document.getElementById("euro");
   if (C && C.month) {
@@ -840,7 +822,7 @@ function setTab(name) {
   try { localStorage.setItem("tab", name); } catch (e) {}
 }
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
-(function () { let t = "energie"; try { t = ["#einkauf", "#mobil"].includes(location.hash) ? location.hash.slice(1) : (localStorage.getItem("tab") || "energie"); } catch (e) {} setTab(t); })();
+(function () { let t = "energie"; try { t = ["#einkauf", "#mobil", "#energie"].includes(location.hash) ? location.hash.slice(1) : (localStorage.getItem("tab") || "energie"); } catch (e) {} setTab(t); })();
 
 // ---- Mobil ----
 let MOBIL = null;

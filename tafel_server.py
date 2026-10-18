@@ -16,7 +16,8 @@ _spec = importlib.util.spec_from_file_location("einkauf", os.path.join(HERE, "ei
 LOCK = threading.Lock()
 
 PHONE_PAGE = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>Einkauf</title>
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Einkauf"><title>homeOS · Einkauf</title>
+<link rel="icon" type="image/svg+xml" href="../icon.svg"><link rel="apple-touch-icon" href="../icon-180.png"><link rel="manifest" href="../manifest.webmanifest">
 <style>
 :root{--fg:#0f2a4a;--muted:#5f7691;--line:#d9e3ee;--soft:#edf3f9;--good:#16a35a;--bad:#2a6fdb}
 body{margin:0;font-family:-apple-system,"Manrope",system-ui,sans-serif;color:var(--fg);background:#fff;padding:env(safe-area-inset-top) 16px 24px}
@@ -137,7 +138,7 @@ p{color:var(--bad);font-size:.9rem;min-height:1.2em;margin:0}</style></head><bod
 </body></html>"""
 
 class H(http.server.SimpleHTTPRequestHandler):
-    extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".html": "text/html; charset=utf-8", ".json": "application/json; charset=utf-8"}
+    extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".html": "text/html; charset=utf-8", ".json": "application/json; charset=utf-8", ".webmanifest": "application/manifest+json", ".svg": "image/svg+xml", ".png": "image/png"}
     def __init__(self, *a, **k):
         super().__init__(*a, directory=ROOT, **k)
     # --- Zugang: geheimer Pfad /<TOKEN>/... ODER Cookie nach PIN-Eingabe auf der Startseite ---
