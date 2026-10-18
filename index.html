@@ -168,7 +168,11 @@ body[data-tab="einkauf"] .seite-energie { display: none; }
 .einkauf { display: grid; grid-template-columns: 1.1fr 1fr; gap: 2.4em; min-height: calc(100vh - 8em); }
 .einkauf h2 { margin: 0 0 .9em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
 .einkauf h2 span { font-weight: 500; letter-spacing: 0; text-transform: none; font-family: var(--mono); }
-.liste { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 2.4em; }
+.gruppen { display: grid; grid-template-columns: 1fr 1fr; gap: 2em; }
+.gruppe h3 { margin: 0 0 .4em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--bad); font-weight: 700; display: flex; justify-content: space-between; }
+.gruppe h3 span { color: var(--muted); font-weight: 500; letter-spacing: 0; text-transform: none; font-family: var(--mono); }
+.gruppe + .gruppe { margin-top: 1.4em; }
+.liste { list-style: none; margin: 0; padding: 0; }
 .liste li { break-inside: avoid; display: grid; grid-template-columns: 1.1em 1fr; gap: .7em; align-items: start; padding: .5em 0; border-bottom: 1px solid var(--line); font-size: 1.25em; font-weight: 600; }
 .liste li > span { min-width: 0; }
 .liste li::before { content: ""; width: .95em; height: .95em; border: 2px solid var(--line); border-radius: 5px; margin-top: .25em; }
@@ -294,7 +298,7 @@ footer { display: flex; justify-content: space-between; gap: 1em; flex-wrap: wra
   <section class="einkauf">
     <div>
       <h2>Einkaufsliste <span id="einkauf-n"></span></h2>
-      <ul class="liste" id="liste"><li class="leer">Noch nichts auf der Liste</li></ul>
+      <div class="gruppen" id="gruppen"><ul class="liste" id="liste"><li class="leer">Noch nichts auf der Liste</li></ul></div>
       <p class="hinweis" id="einkauf-hinweis"></p>
     </div>
     <div>
@@ -736,14 +740,21 @@ document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click
 let EINKAUF = { items: [] };
 const eur = v => v == null ? "–" : v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 function renderEinkauf(e) {
-  const ul = document.getElementById("liste"); ul.innerHTML = "";
   const items = e.items || [];
   document.getElementById("einkauf-n").textContent = items.length ? items.length + " Artikel" : "";
-  if (!items.length) ul.innerHTML = '<li class="leer">Noch nichts auf der Liste</li>';
-  for (const it of items) {
-    const best = (it.offers || []).filter(o => !o.soon)[0];
-    ul.insertAdjacentHTML("beforeend", `<li><span>${it.name}${best ? `<small><b>${best.store}</b> ${eur(best.price)}${best.brand ? " · " + best.brand : ""}</small>` : ""}</span></li>`);
-  }
+  const KAT = [["vorrat", "Vorrat · Discounter"], ["frisch", "Frisch · Markt / Supermarkt"], ["drogerie", "Drogerie & Haushalt"]];
+  const gr = document.getElementById("gruppen"); gr.innerHTML = "";
+  if (!items.length) gr.innerHTML = '<ul class="liste"><li class="leer">Noch nichts auf der Liste</li></ul>';
+  const col = { vorrat: [], frisch: [], drogerie: [] };
+  for (const it of items) (col[it.kat] || col.vorrat).push(it);
+  const spalte1 = document.createElement("div"), spalte2 = document.createElement("div");
+  KAT.forEach(([k, label], idx) => {
+    if (!col[k].length) return;
+    const lis = col[k].map(it => { const best = (it.offers || []).filter(o => !o.soon)[0]; return `<li><span>${it.name}${best ? `<small><b>${best.store}</b> ${eur(best.price)}${best.brand ? " · " + best.brand : ""}</small>` : ""}</span></li>`; }).join("");
+    const html = `<div class="gruppe"><h3>${label} <span>${col[k].length}</span></h3><ul class="liste">${lis}</ul></div>`;
+    (k === "vorrat" ? spalte1 : spalte2).insertAdjacentHTML("beforeend", html);
+  });
+  if (items.length) { gr.appendChild(spalte1); gr.appendChild(spalte2); }
   const ang = document.getElementById("angebote"); ang.innerHTML = "";
   const all = [];
   for (const it of items) for (const o of (it.offers || [])) all.push({ ...o, item: it.name });
@@ -752,7 +763,7 @@ function renderEinkauf(e) {
     ang.insertAdjacentHTML("beforeend", `<div class="angebot"><div><div class="store">${o.store}${o.soon ? " · ab " + new Date(o.from + "T00:00").toLocaleDateString("de-DE", { weekday: "short" }) : ""}</div><div class="p">${o.brand ? o.brand + " " : ""}${o.product} <small>· ${o.desc || ""}</small></div></div><div class="pr"><b>${eur(o.price)}</b>${o.old ? ` <s>${eur(o.old)}</s>` : ""}${o.unit ? `<br><small>je ${o.unit}</small>` : ""}</div></div>`);
   }
   document.getElementById("einkauf-stand").textContent = e.updated ? "Stand " + e.updated.replace("T", " ") : "";
-  document.getElementById("einkauf-hinweis").innerHTML = 'Pflegen über die Handy-Seite <code>…/einkauf/</code> (als Lesezeichen auf den Homescreen): <code>Milch, Eier</code> fügt hinzu · Antippen hakt ab.';
+  document.getElementById("einkauf-hinweis").innerHTML = 'Handy-Seite <code>…/einkauf/</code>: <code>Milch, Eier</code> fügt hinzu · Antippen hakt ab · <code>frisch: Käse</code> oder <code>vorrat: …</code> legt die Gruppe fest.';
 }
 async function ladenEinkauf() {
   try { const r = await fetch("einkauf.json", { cache: "no-store" }); if (r.ok) EINKAUF = await r.json(); } catch (e) {}

@@ -24,6 +24,23 @@ def load():
 def save(s):
     tmp = STATE + ".tmp"; json.dump(s, open(tmp, "w", encoding="utf-8"), ensure_ascii=False, indent=1); os.replace(tmp, STATE)
 
+# Kategorien: Vorrat (Discounter), Frisch (Markt/Supermarkt), Drogerie & Haushalt. Treffer über Wortanfänge.
+KATEGORIEN = {
+    "frisch": ["tomate", "gurke", "salat", "paprika", "zwiebel", "knoblauch", "kartoffel", "karotte", "möhre", "brokkoli", "blumenkohl", "zucchini", "aubergine", "spinat", "pilz", "champignon", "lauch", "kräuter", "petersilie", "basilikum", "avocado",
+               "apfel", "äpfel", "banane", "birne", "traube", "beere", "erdbeere", "himbeere", "blaubeere", "heidelbeere", "zitrone", "limette", "orange", "mandarine", "mango", "melone", "kiwi", "pfirsich", "pflaume", "kirsche", "obst", "gemüse",
+               "brot", "brötchen", "baguette", "croissant", "kuchen", "brezel",
+               "fleisch", "hack", "hähnchen", "huhn", "pute", "rind", "schwein", "lamm", "wurst", "schinken", "salami", "speck", "fisch", "lachs", "forelle", "garnele",
+               "käse", "frischkäse", "mozzarella", "feta", "parmesan", "quark", "joghurt", "sahne", "butter", "ei", "eier", "tofu", "sushi", "salat"],
+    "drogerie": ["windel", "feuchttücher", "zahnpasta", "zahnbürste", "shampoo", "duschgel", "seife", "deo", "rasier", "creme", "sonnencreme", "wattestäbchen", "taschentücher", "klopapier", "toilettenpapier", "küchenrolle",
+                 "spülmittel", "waschmittel", "weichspüler", "spültab", "putz", "reiniger", "müllbeutel", "schwamm", "alufolie", "frischhaltefolie", "backpapier", "batterie", "glühbirne", "kerze", "blumen"],
+}
+def kategorie(name):
+    n = name.lower()
+    for kat, woerter in KATEGORIEN.items():
+        if any(n.startswith(w) or (" " + w) in (" " + n) for w in woerter):
+            return kat
+    return "vorrat"
+
 def norm(s):
     return s.strip().strip(".;,").capitalize()
 
@@ -42,12 +59,16 @@ def apply_message(state, text, who):
         n = before - len(state["items"])
         return f"Abgehakt: {m[2].strip()}" if n else f"„{m[2].strip()}“ steht nicht auf der Liste."
     added = []
+    forced = None
+    mk = re.match(r"^(frisch|vorrat|discounter|drogerie|haushalt)\s*:\s*(.+)$", t, re.I | re.S)
+    if mk:
+        forced = {"discounter": "vorrat", "haushalt": "drogerie"}.get(mk[1].lower(), mk[1].lower()); t = mk[2]
     for part in re.split(r"[,\n;]+", t):
         name = norm(part)
         if not name or len(name) > 60:
             continue
         if not any(i["name"].lower() == name.lower() for i in items):
-            items.append({"name": name, "by": who, "at": dt.datetime.now().isoformat(timespec="minutes")}); added.append(name)
+            items.append({"name": name, "kat": forced or kategorie(name), "by": who, "at": dt.datetime.now().isoformat(timespec="minutes")}); added.append(name)
     return ("Dazu: " + ", ".join(added)) if added else "Steht schon drauf."
 
 def search_offers(q, limit=6):
@@ -84,7 +105,7 @@ def refresh_offers(state, max_age_h=6):
     state["offers"] = offers; state["offers_at"] = time.time()
 
 def export(state, outp):
-    out = {"items": [{**i, "offers": state["offers"].get(i["name"], [])} for i in state["items"]],
+    out = {"items": [{**i, "kat": i.get("kat") or kategorie(i["name"]), "offers": state["offers"].get(i["name"], [])} for i in state["items"]],
            "updated": dt.datetime.now().isoformat(timespec="minutes"), "errors": {}}
     tmp = outp + ".tmp"; json.dump(out, open(tmp, "w", encoding="utf-8"), ensure_ascii=False, indent=1); os.replace(tmp, outp)
 
@@ -96,7 +117,7 @@ def main():
     except Exception as e:
         errors["angebote"] = f"{type(e).__name__}: {e}"[:200]
     save(state)
-    out = {"items": [{**i, "offers": state["offers"].get(i["name"], [])} for i in state["items"]],
+    out = {"items": [{**i, "kat": i.get("kat") or kategorie(i["name"]), "offers": state["offers"].get(i["name"], [])} for i in state["items"]],
            "updated": dt.datetime.now().isoformat(timespec="minutes"), "errors": errors}
     outp = sys.argv[1] if len(sys.argv) > 1 else "einkauf.json"
     json.dump(out, open(outp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)

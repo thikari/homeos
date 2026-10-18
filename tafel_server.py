@@ -27,6 +27,7 @@ li i{width:1.3rem;height:1.3rem;border:2px solid var(--line);border-radius:6px;f
 li small{display:block;font-size:.8rem;font-weight:500;color:var(--muted)}
 li small b{color:var(--good)}
 li.done{opacity:.35;text-decoration:line-through}
+li.kat{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bad);font-weight:700;border:0;padding:1.1rem 0 .2rem}
 .leer{color:var(--muted);font-weight:500}
 .hint{color:var(--muted);font-size:.85rem;margin-top:1.2rem;line-height:1.5}
 .row{display:flex;justify-content:space-between;align-items:center}
@@ -35,13 +36,16 @@ li.done{opacity:.35;text-decoration:line-through}
 <div class="row"><h1>Einkaufsliste</h1><a href="#" id="clear">leeren</a></div>
 <form id="f"><input id="t" placeholder="Milch, Eier, Windeln …" autocomplete="off" autofocus><button>Dazu</button></form>
 <ul id="l"><li class="leer">Lade …</li></ul>
-<p class="hint">Mehrere Artikel mit Komma trennen. Antippen hakt ab. „x Milch" im Feld geht auch.</p>
+<p class="hint">Mehrere Artikel mit Komma trennen. Antippen hakt ab. Gruppe erzwingen: „frisch: Käse" oder „vorrat: …".</p>
 <script>
 const base = location.pathname.replace(/\/einkauf\/?$/, "");
 async function load(){ const r = await fetch(base + "/einkauf.json", {cache:"no-store"}); const j = await r.json(); render(j); }
+const KAT = [["vorrat","Vorrat · Discounter"],["frisch","Frisch · Markt / Supermarkt"],["drogerie","Drogerie & Haushalt"]];
 function render(j){ const ul = document.getElementById("l"); ul.innerHTML = ""; if(!j.items.length){ ul.innerHTML = '<li class="leer">Noch nichts auf der Liste</li>'; return; }
-  for(const it of j.items){ const best = (it.offers||[]).filter(o=>!o.soon)[0]; const li = document.createElement("li"); li.innerHTML = `<i></i><span>${it.name}${best?`<small><b>${best.store}</b> ${best.price.toLocaleString("de-DE",{minimumFractionDigits:2})} €</small>`:""}</span>`;
-    li.onclick = async () => { li.classList.add("done"); await send("x " + it.name); }; ul.appendChild(li); } }
+  for(const [k,label] of KAT){ const its = j.items.filter(it => (it.kat||"vorrat") === k); if(!its.length) continue;
+    const h = document.createElement("li"); h.className = "kat"; h.textContent = label; ul.appendChild(h);
+    for(const it of its){ const best = (it.offers||[]).filter(o=>!o.soon)[0]; const li = document.createElement("li"); li.innerHTML = `<i></i><span>${it.name}${best?`<small><b>${best.store}</b> ${best.price.toLocaleString("de-DE",{minimumFractionDigits:2})} €</small>`:""}</span>`;
+      li.onclick = async () => { li.classList.add("done"); await send("x " + it.name); }; ul.appendChild(li); } } }
 async function send(text){ const r = await fetch(base + "/einkauf/add", {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:"text="+encodeURIComponent(text)}); if(r.ok) render(await r.json()); }
 document.getElementById("f").onsubmit = async e => { e.preventDefault(); const t = document.getElementById("t"); if(!t.value.trim()) return; const v = t.value; t.value = ""; await send(v); };
 document.getElementById("clear").onclick = async e => { e.preventDefault(); if(document.getElementById("clear").dataset.ok){ await send("leer"); delete document.getElementById("clear").dataset.ok; document.getElementById("clear").textContent="leeren"; } else { document.getElementById("clear").dataset.ok="1"; document.getElementById("clear").textContent="wirklich leeren?"; setTimeout(()=>{delete document.getElementById("clear").dataset.ok; document.getElementById("clear").textContent="leeren";},3000);} };
