@@ -36,13 +36,64 @@ KATEGORIEN = {
 }
 def kategorie(name):
     n = name.lower()
+    if any(re.search(r"(?<![a-zäöüß])" + re.escape(w), n) for w in VORRAT_WOERTER if w not in ("spinat", "windeln", "feuchttücher", "klopapier", "toilettenpapier")):
+        return "vorrat"
     for kat, woerter in KATEGORIEN.items():
         if any(n.startswith(w) or (" " + w) in (" " + n) for w in woerter):
             return kat
     return "vorrat"
 
+# Bekannte Artikel (für die Zerlegung diktierter Sätze ohne Kommas). Längere zuerst, damit "Haltbare Milch" vor "Milch" greift.
+VORRAT_WOERTER = ["haltbare milch", "hafermilch", "mandelmilch", "milch", "nudeln", "spaghetti", "penne", "reis", "mehl", "zucker", "salz", "pfeffer", "öl", "olivenöl", "essig", "ketchup", "senf", "mayo", "mayonnaise",
+                  "kaffee", "tee", "kakao", "müsli", "haferflocken", "cornflakes", "marmelade", "honig", "nutella", "nussnougatcreme", "erdnussbutter", "toast", "knäckebrot", "zwieback", "kekse", "chips", "schokolade", "gummibärchen",
+                  "wasser", "sprudel", "cola", "saft", "apfelsaft", "orangensaft", "bier", "wein", "sekt", "dosentomaten", "passierte tomaten", "tomatenmark", "kichererbsen", "linsen", "bohnen", "mais", "thunfisch", "pesto", "brühe",
+                  "kokosmilch", "soja", "tiefkühlpizza", "pizza", "pommes", "fischstäbchen", "eis", "erbsen", "spinat", "katzenfutter", "hundefutter", "babybrei", "babynahrung", "windeln", "feuchttücher", "klopapier", "toilettenpapier"]
+ALLE_WOERTER = sorted(set(VORRAT_WOERTER + KATEGORIEN["frisch"] + KATEGORIEN["drogerie"] + ["eier", "butter", "joghurt", "quark", "sahne", "käse", "brot", "brötchen", "wurst", "schinken", "hähnchen", "hackfleisch", "lachs"]), key=len, reverse=True)
+FUELL = re.compile(r"^(bitte|noch|auch|wir brauchen|ich brauche|brauchen wir|kaufen|einkaufen|und|dann|außerdem|ein|eine|einen|etwas|ein paar|bisschen|päckchen|packung)\s+", re.I)
+MENGE = r"(?:\d+|ein|eine|einen|zwei|drei|vier|fünf|sechs|zehn)?\s*(?:liter|kilo|kg|gramm|g|flaschen?|packungen?|päckchen|dosen?|stück|becher|tüten?|kisten?|bund|netz)?\s*"
+
+def zerlege_gesprochen(t):
+    """'Milch Eier und zwei Liter Apfelsaft Windeln' → 'Milch\nEier\n2 Liter Apfelsaft\nWindeln'. Erst an Kommas/und trennen, dann Reste an bekannten Artikelnamen."""
+    teile = []
+    for part in re.split(r"\s*(?:,|;|\bund\b|\bsowie\b|\bdann\b|\bplus\b|\boder\b)\s*", t, flags=re.I):
+        part = part.strip()
+        if not part:
+            continue
+        rest = part
+        while rest:
+            rest = FUELL.sub("", rest).strip()
+            if not rest:
+                break
+            low = rest.lower()
+            # nächstes bekanntes Wort finden; alles davor gehört (als Menge/Adjektiv) dazu, wenn kurz
+            best = None
+            for w in ALLE_WOERTER:
+                m = re.search(r"(?<![a-zäöüß])" + re.escape(w) + r"[a-zäöüß]*", low)
+                if m and (best is None or m.start() < best.start()):
+                    best = m
+            if best is None:
+                teile.append(rest); break
+            vor = rest[:best.start()].strip()
+            name = rest[best.start():best.end()]
+            if vor and len(vor.split()) <= 3 and re.fullmatch(MENGE + r"[a-zäöüß-]*", vor.lower()):
+                name = (vor + " " + name).strip()
+            elif vor:
+                teile.append(vor)
+            teile.append(name)
+            rest = rest[best.end():].strip()
+    teile = [re.sub(r"\s+(bitte|danke|noch|auch)$", "", x.strip(), flags=re.I) for x in teile]
+    teile = [x for x in teile if x and not re.fullmatch(r"(bitte|danke|noch|auch|das|war|wars|das wars|fertig|ende)", x, re.I)]
+    zahl = {"ein": "1", "eine": "1", "einen": "1", "zwei": "2", "drei": "3", "vier": "4", "fünf": "5", "sechs": "6", "zehn": "10"}
+    out = []
+    for x in teile:
+        x = re.sub(r"^(ein|eine|einen|zwei|drei|vier|fünf|sechs|zehn)\b", lambda m: zahl[m[1].lower()], x.strip(), flags=re.I)
+        x = re.sub(r"^1\s+(?!liter|kilo|kg|flasche|packung|dose|stück|becher|tüte|kiste)", "", x, flags=re.I)
+        if x: out.append(x)
+    return "\n".join(out)
+
 def norm(s):
-    return s.strip().strip(".;,").capitalize()
+    s = s.strip().strip(".;,")
+    return s[:1].upper() + s[1:] if s else s
 
 def apply_message(state, text, who):
     t = text.strip()

@@ -51,7 +51,7 @@
     const panel = mount.querySelector("#ek-panel");
     let aktiv = null, stopFn = null;
 
-    const add = async (text) => { const j = await post(base, "/einkauf/add", "text=" + encodeURIComponent(text)); onUpdate && onUpdate(j); return j.reply; };
+    const add = async (text, sprache) => { const j = await post(base, "/einkauf/add", "text=" + encodeURIComponent(text) + (sprache ? "&sprache=1" : "")); onUpdate && onUpdate(j); return j.reply; };
     const close = () => { if (stopFn) { try { stopFn(); } catch (e) {} stopFn = null; } panel.className = "ek-panel"; panel.innerHTML = ""; aktiv = null; mount.querySelectorAll(".ek-bar button").forEach(b => b.classList.remove("aktiv")); };
     const open = (m, html) => { close(); aktiv = m; panel.innerHTML = html; panel.className = "ek-panel offen"; mount.querySelector(`[data-m="${m}"]`).classList.add("aktiv"); };
     const status = (t) => { const s = panel.querySelector(".ek-status"); if (s) s.innerHTML = t; };
@@ -78,8 +78,8 @@
       const fertig = async () => {
         if (done) return; done = true; stop();
         try { r.abort(); } catch (e) {}
-        const txt = text.trim().replace(/\s+(und|and)\s+/gi, ", ").replace(/[.!?]+$/, "");
-        if (txt) { out.textContent = txt; status("…"); status(await add(txt)); setTimeout(() => { if (aktiv === "mic") close(); }, 1500); }
+        const txt = text.trim().replace(/[.!?]+$/, "");
+        if (txt) { out.textContent = txt; status("…"); status(await add(txt, true)); setTimeout(() => { if (aktiv === "mic") close(); }, 1500); }
         else { status("Nichts verstanden – nochmal auf Sprechen tippen."); mount.querySelector('[data-m="mic"]').classList.remove("aktiv"); aktiv = null; }
       };
       r.onresult = (e) => {

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Minimaler Webserver für die Energie-Tafel.
 Liefert www/ nur unter dem geheimen Pfad /<TAFEL_TOKEN>/ aus, alles andere 404. Keine Caches, damit data.json immer frisch ist."""
-import os, sys, http.server, posixpath, json, urllib.parse, importlib.util, threading
+import os, sys, re, http.server, posixpath, json, urllib.parse, importlib.util, threading
 
 TOKEN = os.environ.get("TAFEL_TOKEN", "").strip("/")
 PORT = int(os.environ.get("TAFEL_PORT", "8787"))
@@ -22,7 +22,8 @@ form{display:flex;gap:.5rem;margin-bottom:1rem}
 input{flex:1;font:inherit;font-size:1.1rem;padding:.75rem .9rem;border:1.5px solid var(--line);border-radius:12px;min-width:0}
 ul{list-style:none;margin:0;padding:0}
 li{display:flex;align-items:center;gap:.8rem;padding:.8rem 0;border-bottom:1px solid var(--line);font-size:1.15rem;font-weight:600}
-li i{width:1.3rem;height:1.3rem;border:2px solid var(--line);border-radius:6px;flex:none}
+li i{width:1.3rem;height:1.3rem;border:2px solid var(--line);border-radius:6px;flex:none;position:relative}
+li i::after{content:"";position:absolute;inset:-.6rem}
 li small{display:block;font-size:.8rem;font-weight:500;color:var(--muted)}
 li small b{color:var(--good)}
 li.done{opacity:.35;text-decoration:line-through}
@@ -35,7 +36,7 @@ li.kat{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(
 <div class="row"><h1>Einkaufsliste</h1><a href="#" id="clear">leeren</a></div>
 <div id="ek"></div>
 <ul id="l"><li class="leer">Lade …</li></ul>
-<p class="hint">Antippen hakt ab. Tippen · Sprechen · Foto · Barcode – alles landet auf der Liste, die auch auf der Tafel steht.</p>
+<p class="hint">Kästchen antippen hakt ab. Tippen · Sprechen · Foto · Barcode – alles landet auf der Liste, die auch auf der Tafel steht.</p>
 <script src="../einkauf.js"></script>
 <script>
 const base = location.pathname.replace(/\/einkauf\/?$/, "");
@@ -45,7 +46,7 @@ function render(j){ const ul = document.getElementById("l"); ul.innerHTML = ""; 
   for(const [k,label] of KAT){ const its = j.items.filter(it => (it.kat||"vorrat") === k); if(!its.length) continue;
     const h = document.createElement("li"); h.className = "kat"; h.textContent = label; ul.appendChild(h);
     for(const it of its){ const best = (it.offers||[]).filter(o=>!o.soon)[0]; const li = document.createElement("li"); li.innerHTML = `<i></i><span>${it.name}${best?`<small><b>${best.store}</b> ${best.price.toLocaleString("de-DE",{minimumFractionDigits:2})} €</small>`:""}</span>`;
-      li.onclick = async () => { li.classList.add("done"); await send("x " + it.name); }; ul.appendChild(li); } } }
+      li.querySelector("i").onclick = async () => { li.classList.add("done"); await send("x " + it.name); }; ul.appendChild(li); } } }
 async function send(text){ const r = await fetch(base + "/einkauf/add", {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:"text="+encodeURIComponent(text)}); if(r.ok) render(await r.json()); }
 initEinkauf({ mount: document.getElementById("ek"), base, onUpdate: render });
 document.getElementById("clear").onclick = async e => { e.preventDefault(); if(document.getElementById("clear").dataset.ok){ await send("leer"); delete document.getElementById("clear").dataset.ok; document.getElementById("clear").textContent="leeren"; } else { document.getElementById("clear").dataset.ok="1"; document.getElementById("clear").textContent="wirklich leeren?"; setTimeout(()=>{delete document.getElementById("clear").dataset.ok; document.getElementById("clear").textContent="leeren";},3000);} };
@@ -98,6 +99,32 @@ def photo_items(b64):
     items = [str(x).strip() for x in items if str(x).strip()][:12]
     return {"items": items}
 
+def gesprochen_zerlegen(text):
+    """Diktierter Satz → kommagetrennte Artikel. Mit ANTHROPIC_API_KEY über Claude, sonst Wortlisten-Heuristik."""
+    t = re.sub(r"\s+", " ", text or "").strip().rstrip(".!?")
+    if not t:
+        return ""
+    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if key:
+        try:
+            import urllib.request
+            prompt = ("Das ist ein diktierter Satz für eine Einkaufsliste (Deutsch, evtl. mit Erkennungsfehlern): \"" + t + "\"\n"
+                      "Zerlege ihn in einzelne Artikel, so wie man sie auf eine Liste schreibt (Mengen behalten, z. B. '2 Liter Milch', Füllwörter wie 'bitte', 'noch', 'wir brauchen' weglassen, "
+                      "Abhaken erkennen: wenn jemand sagt 'Milch ist erledigt/streichen/haben wir', dann 'x Milch'). Antworte NUR mit einem JSON-Array aus Strings.")
+            body = {"model": os.environ.get("TAFEL_TEXT_MODEL", "claude-haiku-5-5"), "max_tokens": 200, "messages": [{"role": "user", "content": prompt}]}
+            req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=json.dumps(body).encode(), method="POST",
+                                         headers={"x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                j = json.load(r)
+            out = "".join(c.get("text", "") for c in j.get("content", []))
+            items = json.loads(out[out.find("["): out.rfind("]") + 1])
+            items = [str(x).strip() for x in items if str(x).strip()]
+            if items:
+                return "\n".join(items)
+        except Exception as e:
+            print("sprache/claude:", e, flush=True)
+    return EINKAUF.zerlege_gesprochen(t)
+
 class H(http.server.SimpleHTTPRequestHandler):
     extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".html": "text/html; charset=utf-8", ".json": "application/json; charset=utf-8"}
     def __init__(self, *a, **k):
@@ -141,7 +168,10 @@ class H(http.server.SimpleHTTPRequestHandler):
                 return self._json(photo_items(json.loads(raw).get("image", "")))
             except Exception as e:
                 return self._json({"error": f"Foto-Erkennung fehlgeschlagen: {e}"})
-        text = json.loads(raw).get("text", "") if "json" in ctype else urllib.parse.parse_qs(raw).get("text", [""])[0]
+        form = json.loads(raw) if "json" in ctype else {k: v[0] for k, v in urllib.parse.parse_qs(raw).items()}
+        text = form.get("text", "")
+        if form.get("sprache"):
+            text = gesprochen_zerlegen(text)
         self._apply(text)
     def _json(self, obj, code=200):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
