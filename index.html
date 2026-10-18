@@ -201,6 +201,11 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
 .buch .was { font-weight: 600; } .buch .was small { display: block; color: var(--muted); font-weight: 500; font-size: .85em; }
 .buch li.jetzt .wann { color: var(--good); }
 .buch .leer { color: var(--muted); font-weight: 500; display: block; }
+.kosten { margin-top: 1.2em; }
+.kosten h3 { margin: 0 0 .4em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--bad); font-weight: 700; }
+.kosten .kz { display: grid; grid-template-columns: 4.2em 1fr 5.5em 5em; gap: .7em; align-items: center; padding: .25em 0; font-size: .95em; }
+.kosten .km { font-weight: 600; } .kosten .kb { height: .55em; background: var(--soft); border-radius: 999px; overflow: hidden; } .kosten .kb i { display: block; height: 100%; background: var(--bad); border-radius: 999px; }
+.kosten .ke { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; } .kosten .kf { color: var(--muted); font-size: .85em; }
 /* Einkauf */
 .einkauf { display: grid; grid-template-columns: 1.1fr 1fr; gap: 2.4em; min-height: calc(100vh - 8em); }
 .einkauf h2 { margin: 0 0 .9em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
@@ -398,6 +403,7 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
     <div>
       <h2>Unsere Buchungen <span>FRANKLIN Mobil</span></h2>
       <ul class="buch" id="buch"><li><span class="leer">Lade …</span></li></ul>
+      <div class="kosten" id="kosten" hidden></div>
       <h2 style="margin-top:1.6em">Fahrzeuge in FRANKLIN <span id="fz-n"></span></h2>
       <ul class="fz" id="fz"><li class="leer">Lade …</li></ul>
     </div>
@@ -856,6 +862,13 @@ function renderMobil(m) {
     else if (bl.length) { slot = `bis ${hhmm(bl[0].e)}`; if (bl[1]) slot += ` · dann bis ${hhmm(bl[1].a)} frei`; }
     const inner = `${ICON_FZ[f.typ] || ICON_FZ["E-Auto"]}<span class="n">${f.name} <small>${f.kennung}${f.ort ? " · " + f.ort : ""}</small></span><span class="st">${st}${slot ? `<small>${slot}</small>` : ""}${f.akku != null ? `<small>${f.akku} %</small>` : ""}</span>`;
     ul.insertAdjacentHTML("beforeend", `<li class="${f.frei ? "" : "belegt"}">${f.link ? `<a href="${f.link}" target="_blank" rel="noopener">${inner}</a>` : inner}</li>`);
+  }
+  const ko = document.getElementById("kosten"), ks = (m.mobil && m.mobil.kosten) || [];
+  ko.hidden = !ks.length;
+  if (ks.length) {
+    const max = Math.max(...ks.map(k => k.eur), 1);
+    ko.innerHTML = '<h3>Kosten pro Monat</h3>' + ks.slice(0, 6).map(k => { const [y, mo] = k.monat.split("-"); const name = new Date(+y, +mo - 1, 1).toLocaleDateString("de-DE", { month: "short", year: "2-digit" });
+      return `<div class="kz"><span class="km">${name}</span><span class="kb"><i style="width:${Math.round(100 * k.eur / max)}%"></i></span><span class="ke">${eur(k.eur)}</span><span class="kf">${k.fahrten} ${k.fahrten === 1 ? "Fahrt" : "Fahrten"}</span></div>`; }).join("");
   }
   const bl = document.getElementById("buch"); bl.innerHTML = "";
   const bs = (m.mobil && m.mobil.buchungen) || [];

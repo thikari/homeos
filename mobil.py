@@ -103,7 +103,7 @@ def buchungen(fz):
         if not tok:
             return [], err
     now = dt.datetime.now(dt.timezone.utc)
-    q = f"bookings?expand=bookee.placeId&expand=bookee&start={iso(now - dt.timedelta(hours=12))}&end={iso(now + dt.timedelta(days=60))}"
+    q = f"bookings?expand=bookee.placeId&expand=bookee&expand=price&start={iso(now - dt.timedelta(days=400))}&end={iso(now + dt.timedelta(days=60))}"
     try:
         _, bs = _req(q, token=tok)
     except urllib.error.HTTPError as e:
@@ -115,8 +115,18 @@ def buchungen(fz):
         _, bs = _req(q, token=tok)
     byid = {f["id"]: f for f in fz}
     out = []
+    kosten = {}                                          # "YYYY-MM" → {"eur": float, "fahrten": n}
     for b in bs or []:
         if (b.get("bookingState") or b.get("state") or "").upper() in ("CANCELLED", "STORNIERT", "CANCELED"):
+            continue
+        tr0 = b.get("timeRange") or {}
+        a0 = _ts(tr0.get("start"))
+        if a0 and a0 < now - dt.timedelta(hours=12):      # vergangene Fahrt → nur Kosten zählen
+            items = ((b.get("price") or {}).get("priceItems")) or []
+            cents = sum(int((it.get("priceIncl") or {}).get("amount") or 0) for it in items)
+            k = a0.astimezone().strftime("%Y-%m")
+            kosten.setdefault(k, {"eur": 0.0, "fahrten": 0})
+            kosten[k]["eur"] += cents / 100; kosten[k]["fahrten"] += 1
             continue
         bk = b.get("bookee") or {}
         f = byid.get(str(b.get("bookeeId") or bk.get("id")), {})
@@ -127,7 +137,10 @@ def buchungen(fz):
                     "typ": f.get("typ") or ("Lastenrad" if "rad" in (bk.get("licenseNumber", "") + bk.get("name", "")).lower() else "E-Auto"),
                     "ort": f.get("ort") or (bk.get("place") or {}).get("name", ""), "status": b.get("bookingState") or b.get("state")})
     out.sort(key=lambda x: x["start"] or "")
+    global KOSTEN
+    KOSTEN = [{"monat": k, "eur": round(v["eur"], 2), "fahrten": v["fahrten"]} for k, v in sorted(kosten.items(), reverse=True)][:12]
     return out, None
+KOSTEN = []
 
 def main():
     outp = sys.argv[1] if len(sys.argv) > 1 else "mobil.json"
@@ -145,7 +158,7 @@ def main():
     except Exception as e:
         errors.append(f"FRANKLIN Mobil Fahrzeuge: {e}")
     try:
-        bs, err = buchungen(fz); res["mobil"]["buchungen"] = bs
+        bs, err = buchungen(fz); res["mobil"]["buchungen"] = bs; res["mobil"]["kosten"] = KOSTEN
         if err:
             res["mobil"]["login_fehler"] = err
     except Exception as e:
