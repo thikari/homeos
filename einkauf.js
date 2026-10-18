@@ -92,22 +92,30 @@
     };
     // --- Barcode ---
     const modeBar = async () => {
-      open("bar", `<video playsinline muted></video><div class="ek-status">Lade Scanner …</div>`);
+      open("bar", `<video playsinline muted autoplay></video><div class="ek-status">Lade Scanner …</div>`);
       try { await loadScript(ZXING); } catch (e) { status("Scanner konnte nicht geladen werden."); return; }
       const video = panel.querySelector("video");
-      const reader = new ZXing.BrowserMultiFormatReader();
+      const hints = new Map();
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8, ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E, ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.QR_CODE]);
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      const reader = new ZXing.BrowserMultiFormatReader(hints, 300);
       stopFn = () => reader.reset();
-      status("Barcode vor die Kamera halten …");
-      let busy = false;
+      status("Kamera wird gestartet …");
+      let busy = false, last = "";
+      const onResult = async (result) => {
+        if (!result || busy) return;
+        const code = result.getText(); if (code === last) return; busy = true; last = code;
+        if (navigator.vibrate) navigator.vibrate(60);
+        status(`<b>${code}</b> – suche Produkt …`);
+        try { const j = await (await fetch(base + "/einkauf/ean/" + encodeURIComponent(code))).json(); vorschlaege(j.name ? [j.name] : [], "Barcode " + code); if (!j.name) status(`Barcode <b>${code}</b> ist nicht in der Datenbank – bitte tippen.`); }
+        catch (e) { status("Suche fehlgeschlagen."); }
+        setTimeout(() => { busy = false; }, 3000);
+      };
       try {
-        await reader.decodeFromVideoDevice(undefined, video, async (result) => {
-          if (!result || busy) return; busy = true;
-          const code = result.getText(); status(`<b>${code}</b> – suche Produkt …`);
-          try { const j = await (await fetch(base + "/einkauf/ean/" + encodeURIComponent(code))).json(); vorschlaege(j.name ? [j.name] : [], "Barcode " + code); if (!j.name) status(`Barcode ${code} ist nicht in der Datenbank – bitte tippen.`); }
-          catch (e) { status("Suche fehlgeschlagen."); }
-          setTimeout(() => { busy = false; }, 2500);
-        });
-      } catch (e) { status("Kamera nicht verfügbar: " + (e.message || e)); }
+        // Rückkamera erzwingen (iPhone nimmt sonst die Frontkamera)
+        await reader.decodeFromConstraints({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } }, video, onResult);
+        status("Barcode in die Mitte halten, 15–25 cm Abstand, ruhig halten …");
+      } catch (e) { status("Kamera nicht verfügbar: " + (e.message || e) + " – Safari ▸ Einstellungen ▸ Kamera erlauben"); }
     };
 
     mount.querySelectorAll(".ek-bar button").forEach(b => b.addEventListener("click", () => {
