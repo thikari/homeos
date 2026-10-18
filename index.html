@@ -249,6 +249,18 @@ footer { display: flex; justify-content: space-between; gap: 1em; flex-wrap: wra
 </div>
 
 <script>
+// Endhaltestelle → verständliche Richtung (Rest fällt auf den Endhaltestellen-Namen zurück)
+const RICHTUNG = {
+  "Bensheimer Straße": "Käfertal · Umstieg Linie 5",
+  "Sullivan": "Franklin Ost (Endhaltestelle)",
+  "Hbf · Heidelberg": "Innenstadt · Hauptbahnhof",
+  "Weinheim, Alter OEG-Bahnhof": "Heddesheim · Weinheim",
+  "Edingen": "Heddesheim · Edingen",
+  "Heidelberg": "Heidelberg",
+  "Feudenheim": "Feudenheim",
+  "Waldhof, Bahnhof": "Waldhof Bahnhof",
+};
+function richtung(d) { if (RICHTUNG[d]) return RICHTUNG[d]; const k = Object.keys(RICHTUNG).find(k => d.startsWith(k)); return k ? RICHTUNG[k] : d; }
 const ZIEL = { strom_kwh: 2100, kaltwasser_m3: 80, warmwasser_m3: 24, waerme_kwh: 2900 };
 const SAISON = {
   strom_kwh:     [.095,.085,.085,.08,.075,.075,.08,.08,.085,.085,.085,.09],
@@ -522,7 +534,8 @@ function render(data) {
     const st = ratio <= 1 ? "good" : ratio <= 1.2 ? "ok" : "bad";
     const txt = { good: "auf Kurs", ok: "leicht drüber", bad: "deutlich drüber" }[st];
     const prog = frac > 0.15 ? heuteKwh / frac : null;
-    document.getElementById("h-v").innerHTML = fmt(heuteKwh, 1) + "<small> / " + fmt(tagesziel, 1) + " kWh</small>";
+    const ct = data.cost && data.cost.today;
+    document.getElementById("h-v").innerHTML = fmt(heuteKwh, 1) + "<small> / " + fmt(tagesziel, 1) + " kWh</small>" + (ct ? ` <small>· ${fmt(ct.eur, 2)} €</small>` : "");
     document.getElementById("h-s").innerHTML = `<b data-s="${st}">${txt.charAt(0).toUpperCase() + txt.slice(1)}</b> · Soll bis ${now.getHours()} Uhr ${fmt(erwartet, 1)} kWh` + (prog != null ? `<br>Tagesprognose ${fmt(prog, 1)} kWh` : "");
     document.getElementById("heute-datum").textContent = now.toLocaleDateString("de-DE", { weekday: "long" });
   } else hb.hidden = true;
