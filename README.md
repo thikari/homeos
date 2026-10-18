@@ -52,6 +52,18 @@ Von der Portal-Startseite (Tabelle „Haushaltsstrom"): Monat bisher in €, Ers
 ## Startfenster je Gerät
 Unter jedem Gerät steht der beste Startzeitpunkt in den nächsten 24 Stunden und was ein Durchgang dann kostet, verglichen mit „jetzt". Gerechnet wird mit Laufzeit und Verbrauch aus `GERAETE` in `index.html` (Spülmaschine Eco 3 h / 0,9 kWh, Waschmaschine 2 h / 0,8 kWh, Trockner 1,5 h / 2,4 kWh) – an die eigenen Geräte anpassen. Das Fenster umfasst alle Startzeiten, die höchstens 2 ct über dem Optimum liegen.
 
+## Einkaufsliste per Telegram + Angebote
+Zweiter Tab „Einkauf" (Knopf unten rechts, bleibt auf dem Gerät gespeichert; Direktlink `…/#einkauf`).
+1. In Telegram @BotFather anschreiben → `/newbot` → Name vergeben → Token kopieren.
+2. Railway → Variables → `TELEGRAM_TOKEN` = Token. Optional `TELEGRAM_CHAT_IDS` = eure Chat-IDs (kommagetrennt), dann darf nur ihr schreiben – der Bot nennt jedem Unbekannten seine Chat-ID.
+3. Dem Bot schreiben: `Milch, Eier` fügt hinzu · `x Milch` hakt ab · `leer` leert · `liste` zeigt die Liste. Der Bot antwortet jeweils. Abgleich jede Minute.
+Angebote: `einkauf.py` fragt für jeden Artikel die marktguru-Web-API für PLZ 68309 (`ANGEBOTE_PLZ`) ab, alle 6 Stunden; bestes aktuelles Angebot steht unter dem Artikel, rechts alle Treffer (Lidl, Aldi Süd, REWE, EDEKA, Kaufland, Netto, Penny, dm, Rossmann).
+Liste liegt in `einkauf_state.json` im Container – bei einem Redeploy geht sie verloren (Railway-Volume unter `/app` mounten, wenn das stört).
+
+## Grundlast, Wasser, Geräteläufe
+„Heute"-Spalte: Grundlast = kleinste volle Stunde der letzten 24 h (nachts), Warm-/Kaltwasser der letzten 24 h in Litern.
+Unter jedem Gerät: letzter erkannter Lauf (Block ≥ 600 W über Grundlast, 45 min – 3,5 h, ≥ 0,4 kWh) mit Durchschnittspreis und dem günstigsten Preis des Tages. Zuordnung heuristisch: ≥ 1,6 kWh in ≤ 2,5 h = Trockner, ≥ 2,25 h = Spülmaschine, sonst Waschmaschine.
+
 ## Logik der Empfehlung
 Portal-Preis < 8 ct → "Ja, jetzt." · 8–18 ct → "Geht so." · darüber: "Warten." wenn innerhalb 5 h günstige Stunden folgen, sonst "Netzstrom."
 Günstig = Stunden mit Durchschnittspreis < 10 ct im Preisprofil der letzten 24 h.

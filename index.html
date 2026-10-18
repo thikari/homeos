@@ -28,9 +28,9 @@ body {
   margin: 0; background: var(--bg); color: var(--fg); font-family: var(--display);
   font-size: clamp(13px, 1.15vw, 17px); line-height: 1.3; font-weight: 500;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 1em; box-sizing: border-box;
+  padding-block: .8em; box-sizing: border-box;
 }
-.tafel { display: grid; grid-template-rows: auto auto auto auto minmax(0,1fr) auto; gap: .9em; min-height: calc(100vh - 2em); max-width: 1500px; margin: 0 auto; }
+.tafel { display: grid; grid-template-rows: auto auto auto auto minmax(0,1fr) auto; gap: .7em; min-height: calc(100vh - 1.6em); max-width: 1500px; margin: 0 auto; }
 .eyebrow { font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
@@ -62,7 +62,7 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .ampel[data-state="good"] i:nth-child(3) { background: var(--good); border-color: var(--good); }
 .verdict { font-weight: 800; font-size: clamp(1.9em, 3.4vw, 3.2em); line-height: .95; letter-spacing: -.03em; text-wrap: balance; }
 .verdict small { display: block; font-weight: 500; font-size: .34em; letter-spacing: 0; color: var(--muted); margin-top: .7em; line-height: 1.35; max-width: 34em; }
-.geraete { display: flex; gap: 2em; margin-top: .9em; flex-wrap: wrap; }
+.geraete { display: flex; gap: 1.6em; margin-top: .7em; flex-wrap: wrap; }
 .geraet { display: flex; align-items: center; gap: .7em; min-width: 0; }
 .geraet svg { width: clamp(30px, 2.6vw, 40px); height: auto; display: block; }
 .geraet svg .s { stroke: var(--fg); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
@@ -94,7 +94,7 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .chart .dot { fill: var(--bg); stroke: var(--fg); stroke-width: 2.5; }
 .chart .nachtsym { fill: var(--soft); }
 /* 24h strip */
-.fenster { display: grid; gap: .6em; padding-top: .2em; }
+.fenster { display: grid; gap: .4em; padding-top: 0; }
 .fenster .kopf { display: flex; justify-content: space-between; align-items: baseline; gap: 1em; flex-wrap: wrap; }
 .fenster .kopf strong { font-weight: 600; font-size: .95em; }
 .strip { display: grid; grid-template-columns: repeat(24, minmax(0,1fr)); gap: 3px; }
@@ -108,10 +108,10 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .striplabels span:nth-child(6n+1) { visibility: visible; }
 
 /* bottom columns */
-.unten { display: grid; grid-template-columns: 1fr 1.3fr .95fr .95fr; gap: 2em; padding-top: 1.1em; border-top: 1px solid var(--line); min-height: 0; }
-.unten h2 { margin: 0 0 .9em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
+.unten { display: grid; grid-template-columns: 1fr 1.3fr .95fr .95fr; gap: 2em; padding-top: .8em; border-top: 1px solid var(--line); min-height: 0; }
+.unten h2 { margin: 0 0 .6em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
 .unten h2 span { font-weight: 500; letter-spacing: 0; text-transform: none; font-family: var(--mono); }
-.heute { display: grid; gap: .35em; margin-bottom: .9em; }
+.heute { display: grid; gap: .3em; margin-bottom: .6em; }
 .heute .hv { font-weight: 800; font-size: 1.6em; letter-spacing: -.02em; line-height: 1; white-space: nowrap; }
 .heute .hv small { font-size: .55em; font-weight: 500; color: var(--muted); letter-spacing: 0; }
 .heute .hs { font-size: .82em; color: var(--muted); }
@@ -119,13 +119,13 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .heute .hs b[data-s="good"] { color: var(--good); } .heute .hs b[data-s="ok"] { color: var(--warn); } .heute .hs b[data-s="bad"] { color: var(--bad); }
 .tage { margin-top: .2em; }
 .tage .kopf { font-size: .78em; color: var(--muted); margin-bottom: .3em; }
-.tage .bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; align-items: end; height: 30px; position: relative; }
+.tage .bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; align-items: end; height: 24px; position: relative; }
 .tage .bars::before { content: ""; position: absolute; left: 0; right: 0; top: var(--ziel, 50%); border-top: 1.5px dashed var(--fg); opacity: .5; }
 .tage .bars i { display: block; height: var(--h); background: var(--c); border-radius: 3px 3px 0 0; }
 .tage .bars i.heute { opacity: .5; }
 .tage .labels { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 2px; }
 .tage .labels span { font-family: var(--mono); font-size: .62em; color: var(--muted); text-align: center; }
-.tage.h24 .bars { grid-template-columns: repeat(24, 1fr); gap: 2px; height: 40px; }
+.tage.h24 .bars { grid-template-columns: repeat(24, 1fr); gap: 2px; height: 30px; }
 .tage.h24 .bars::before { display: none; }
 .tage.h24 .labels { grid-template-columns: repeat(24, 1fr); gap: 2px; }
 .tage.h24 .labels span { text-align: left; visibility: hidden; }
@@ -156,6 +156,43 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .termine .leer { color: var(--muted); }
 .stale { position: fixed; left: 0; right: 0; top: 0; padding: .45em 1em; background: var(--warn); color: var(--fg); font-weight: 600; font-size: .85em; text-align: center; z-index: 5; }
 .stale[hidden] { display: none !important; }
+/* Tabs */
+.tabs { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: .7em; display: flex; gap: .3em; z-index: 6; }
+.tabs button { font: inherit; font-size: .78em; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: .4em 1em; cursor: pointer; }
+.tabs button[aria-selected="true"] { color: #fff; background: var(--fg); border-color: var(--fg); }
+.tabs button:focus-visible { outline: 2px solid var(--bad); outline-offset: 2px; }
+.seite-einkauf { display: none; }
+body[data-tab="einkauf"] .seite-einkauf { display: block; }
+body[data-tab="einkauf"] .seite-energie { display: none; }
+/* Einkauf */
+.einkauf { display: grid; grid-template-columns: 1.1fr 1fr; gap: 2.4em; min-height: calc(100vh - 8em); }
+.einkauf h2 { margin: 0 0 .9em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
+.einkauf h2 span { font-weight: 500; letter-spacing: 0; text-transform: none; font-family: var(--mono); }
+.liste { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 2.4em; }
+.liste li { break-inside: avoid; display: grid; grid-template-columns: 1.1em 1fr; gap: .7em; align-items: start; padding: .5em 0; border-bottom: 1px solid var(--line); font-size: 1.25em; font-weight: 600; }
+.liste li > span { min-width: 0; }
+.liste li::before { content: ""; width: .95em; height: .95em; border: 2px solid var(--line); border-radius: 5px; margin-top: .25em; }
+.liste li small { display: block; font-size: .62em; font-weight: 500; color: var(--muted); }
+.liste li small b { color: var(--good); font-weight: 700; }
+.liste .leer { color: var(--muted); font-weight: 500; font-size: 1em; border: 0; }
+.liste .leer::before { display: none; }
+.angebote { display: grid; gap: .55em; }
+.angebot { display: grid; grid-template-columns: 1fr auto; gap: .8em; align-items: baseline; padding: .45em 0; border-bottom: 1px solid var(--line); }
+.angebot .p { font-weight: 600; }
+.angebot .p small { color: var(--muted); font-weight: 500; }
+.angebot .pr { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.angebot .pr b { font-weight: 700; color: var(--good); }
+.angebot .pr s { color: var(--muted); font-size: .85em; }
+.angebot .store { font-size: .78em; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--bad); }
+.hinweis { color: var(--muted); font-size: .9em; line-height: 1.5; max-width: 34em; }
+.hinweis code { font-family: var(--mono); background: var(--soft); padding: .1em .35em; border-radius: 4px; }
+/* Geräte: letzter Lauf */
+.geraet .gl { font-size: .78em; color: var(--muted); white-space: nowrap; }
+.geraet .gl b[data-s="good"] { color: var(--good); } .geraet .gl b[data-s="ok"] { color: var(--warn); } .geraet .gl b[data-s="bad"] { color: var(--bad); }
+.heute .wasser { display: flex; gap: 1.4em; font-size: .9em; margin-top: .3em; }
+.heute .wasser b { font-weight: 700; }
+.heute .wasser small { color: var(--muted); }
+@media (max-width: 900px) { .einkauf { grid-template-columns: 1fr; } .liste { columns: 1; } }
 footer { display: flex; justify-content: space-between; gap: 1em; flex-wrap: wrap; color: var(--muted); font-size: .72em; font-family: var(--mono); }
 
 @media (max-width: 900px) {
@@ -170,7 +207,7 @@ footer { display: flex; justify-content: space-between; gap: 1em; flex-wrap: wra
 </head>
 <body>
 <div class="stale" id="stale" hidden></div>
-<div class="tafel">
+<div class="tafel seite-energie">
   <header>
     <div><div class="clock" id="clock">--:--</div><div class="date" id="date"></div></div>
     <div class="kopfrechts">
@@ -186,15 +223,15 @@ footer { display: flex; justify-content: space-between; gap: 1em; flex-wrap: wra
       <div class="geraete">
         <div class="geraet" id="g-spuel" data-state="bad">
           <svg viewBox="0 0 48 48" aria-hidden="true"><rect class="s" x="6" y="4" width="36" height="40" rx="3"/><line class="s" x1="6" y1="13" x2="42" y2="13"/><circle class="f" cx="12" cy="8.5" r="1.6"/><circle class="f" cx="18" cy="8.5" r="1.6"/><rect class="s" x="11" y="18" width="26" height="21" rx="2"/><ellipse class="s" cx="17" cy="28.5" rx="2.6" ry="7"/><ellipse class="s" cx="24" cy="28.5" rx="2.6" ry="7"/><ellipse class="s" cx="31" cy="28.5" rx="2.6" ry="7"/></svg>
-          <div><div class="gn">Spülmaschine</div><div class="gs" id="gs-spuel">–</div><div class="gw" id="gw-spuel"></div></div>
+          <div><div class="gn">Spülmaschine</div><div class="gs" id="gs-spuel">–</div><div class="gw" id="gw-spuel"></div><div class="gl" id="gl-spuel"></div></div>
         </div>
         <div class="geraet" id="g-wasch" data-state="bad">
           <svg viewBox="0 0 48 48" aria-hidden="true"><rect class="s" x="6" y="4" width="36" height="40" rx="3"/><line class="s" x1="6" y1="13" x2="42" y2="13"/><circle class="f" cx="12" cy="8.5" r="1.6"/><rect class="s" x="30" y="7" width="8" height="3" rx="1.5"/><circle class="s" cx="24" cy="29" r="10"/><circle class="s" cx="24" cy="29" r="6.5"/><path class="s" d="M18.5 30.5c2-2 4-2 5.5 0s3.5 2 5.5 0"/></svg>
-          <div><div class="gn">Waschmaschine</div><div class="gs" id="gs-wasch">–</div><div class="gw" id="gw-wasch"></div></div>
+          <div><div class="gn">Waschmaschine</div><div class="gs" id="gs-wasch">–</div><div class="gw" id="gw-wasch"></div><div class="gl" id="gl-wasch"></div></div>
         </div>
         <div class="geraet" id="g-trock" data-state="bad">
           <svg viewBox="0 0 48 48" aria-hidden="true"><rect class="s" x="6" y="4" width="36" height="40" rx="3"/><line class="s" x1="6" y1="13" x2="42" y2="13"/><circle class="f" cx="12" cy="8.5" r="1.6"/><rect class="s" x="30" y="7" width="8" height="3" rx="1.5"/><circle class="s" cx="24" cy="29" r="10"/><path class="s" d="M20 33.5c0-3 1.5-3.5 1.5-6s-1.5-3-1.5-5.5M24 34.5c0-3 1.5-3.5 1.5-6s-1.5-3-1.5-5.5M28 33.5c0-3 1.5-3.5 1.5-6s-1.5-3-1.5-5.5"/></svg>
-          <div><div class="gn">Trockner</div><div class="gs" id="gs-trock">–</div><div class="gw" id="gw-trock"></div></div>
+          <div><div class="gn">Trockner</div><div class="gs" id="gs-trock">–</div><div class="gw" id="gw-trock"></div><div class="gl" id="gl-trock"></div></div>
         </div>
       </div>
     </div>
@@ -206,7 +243,7 @@ footer { display: flex; justify-content: space-between; gap: 1em; flex-wrap: wra
       <div class="v" id="p-now">–<small> ct/kWh</small></div>
       <div class="trend" id="p-trend"></div>
     </div>
-    <svg class="chart" id="chart" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-label="Strompreis: letzte 6 und nächste 18 Stunden"></svg>
+    <svg class="chart" id="chart" viewBox="0 0 1000 104" preserveAspectRatio="none" aria-label="Strompreis: letzte 6 und nächste 18 Stunden"></svg>
   </section>
 
   <section class="fenster">
@@ -227,6 +264,7 @@ footer { display: flex; justify-content: space-between; gap: 1em; flex-wrap: wra
       <div class="heute" id="heute" hidden>
         <div class="hv" id="h-v">–<small> kWh</small></div>
         <div class="hs" id="h-s"></div>
+        <div class="wasser" id="wasser" hidden></div>
       </div>
       <div class="tage h24" id="h24"></div>
       <div class="tage" id="tage"></div>
@@ -246,6 +284,30 @@ footer { display: flex; justify-content: space-between; gap: 1em; flex-wrap: wra
     <span id="stand">Daten bis –</span>
     <span id="live"></span>
   </footer>
+</div>
+
+<div class="tafel seite-einkauf">
+  <header>
+    <div><div class="clock" id="clock2">--:--</div><div class="date" id="date2"></div></div>
+    <div class="eyebrow" id="einkauf-stand"></div>
+  </header>
+  <section class="einkauf">
+    <div>
+      <h2>Einkaufsliste <span id="einkauf-n"></span></h2>
+      <ul class="liste" id="liste"><li class="leer">Noch nichts auf der Liste</li></ul>
+      <p class="hinweis" id="einkauf-hinweis"></p>
+    </div>
+    <div>
+      <h2>Angebote diese Woche <span>PLZ 68309</span></h2>
+      <div class="angebote" id="angebote"><span class="hinweis">Angebote erscheinen, sobald Artikel auf der Liste stehen.</span></div>
+    </div>
+  </section>
+  <footer><span></span><span></span></footer>
+</div>
+
+<div class="tabs" role="tablist">
+  <button role="tab" aria-selected="true" data-tab="energie">Energie</button>
+  <button role="tab" aria-selected="false" data-tab="einkauf">Einkauf</button>
 </div>
 
 <script>
@@ -357,7 +419,7 @@ function preisReihe(data, now, cal) {
 }
 function zeichneChart(pts, now, live) {
   const svg = document.getElementById("chart"); if (!pts.length) { svg.innerHTML = ""; return; }
-  const W = 1000, H = 120, L = 34, R = 12, T = 10, B = 22;
+  const W = 1000, H = 104, L = 34, R = 12, T = 8, B = 20;
   const tmin = pts[0].t.getTime(), tmax = pts[pts.length-1].t.getTime();
   const x = t => L + (t - tmin) / (tmax - tmin) * (W - L - R);
   const y = ct => T + (1 - Math.min(ct, 35) / 35) * (H - T - B);
@@ -420,6 +482,26 @@ function bestesFenster(sp, g, now) {
   const jetztCt = sp[0].ct;
   return { from: sp[a].t, to: sp[b].t, avg: best.avg, jetzt: a === 0, kostenBest: best.avg * g.kwh / 100, kostenJetzt: jetztCt != null ? jetztCt * g.kwh / 100 : null };
 }
+function erkenneLaeufe(P, grundlastW) {
+  const base = ((grundlastW || 80) / 1000) / 4;  // kWh je Viertelstunde Grundlast
+  const runs = []; let cur = null;
+  P.forEach((p, i) => {
+    const hoch = (p.kwh || 0) > base + 0.15;
+    if (hoch && !cur) cur = { start: i, kwh: 0, ctsum: 0, n: 0, t: new Date(p.t) };
+    if (cur) { cur.kwh += (p.kwh || 0) - base; cur.ctsum += p.ct; cur.n++; }
+    if (cur && (!hoch || i === P.length - 1)) { cur.q = cur.n; if (cur.q >= 3 && cur.q <= 14 && cur.kwh >= 0.4) runs.push(cur); cur = null; }
+  });
+  const minCt = P.length ? Math.min(...P.map(p => p.ct)) : null;
+  const out = {};
+  const now = new Date();
+  for (const r of runs) {
+    const h = r.q / 4, kwh = r.kwh, ct = r.ctsum / r.n;
+    const typ = kwh >= 1.6 && h <= 2.5 ? "trock" : h >= 2.25 ? "spuel" : "wasch";
+    const wann = (r.t.getDate() === now.getDate() ? "heute" : "gestern") + " " + r.t.getHours() + ":" + String(r.t.getMinutes()).padStart(2, "0");
+    out[typ] = { wann, kwh, ct, bestCt: minCt };  // letzter gewinnt
+  }
+  return out;
+}
 function fensterLabel(f, now) {
   if (!f) return "";
   const tag = t => t.getDate() === now.getDate() ? "heute" : "morgen";
@@ -480,10 +562,14 @@ function render(data) {
   document.getElementById("verdict").innerHTML = b.text + "<small>" + b.sub + "</small>";
   const G = { good: ["Jetzt starten", "Jetzt starten", "Jetzt starten"], ok: ["Geht", "Geht", "Lieber warten"], bad: ["Warten", "Warten", "Aus"] }[b.state];
   const S = { good: ["good","good","good"], ok: ["ok","ok","bad"], bad: ["bad","bad","bad"] }[b.state];
+  // Geräteläufe aus den Viertelstundenwerten: Block über Grundlast + 0,15 kWh/15 min (≈ 600 W), 3–14 Viertelstunden
+  const laeufe = erkenneLaeufe(data.price_24h || [], data.grundlast_w);
   const sp = stundenPreise(data, reihe, now);
   [["spuel",0],["wasch",1],["trock",2]].forEach(([id,i]) => {
     document.getElementById("g-"+id).dataset.state = S[i]; document.getElementById("gs-"+id).textContent = G[i];
     document.getElementById("gw-"+id).innerHTML = fensterLabel(bestesFenster(sp, GERAETE[id], now), now);
+    const L = laeufe[id];
+    document.getElementById("gl-"+id).innerHTML = L ? `Letzter Lauf ${L.wann} · ${fmt(L.kwh, 1)} kWh · <b data-s="${L.ct < 8 ? "good" : L.ct < 18 ? "ok" : "bad"}">${fmt(L.ct)} ct</b>${L.ct >= 8 && L.bestCt != null ? ` <small>(möglich ${fmt(L.bestCt, 1)} ct)</small>` : ""}` : "";
   });
 
   // 24h-Streifen
@@ -536,8 +622,14 @@ function render(data) {
     const prog = frac > 0.15 ? heuteKwh / frac : null;
     const ct = data.cost && data.cost.today;
     document.getElementById("h-v").innerHTML = fmt(heuteKwh, 1) + "<small> / " + fmt(tagesziel, 1) + " kWh</small>" + (ct ? ` <small>· ${fmt(ct.eur, 2)} €</small>` : "");
-    document.getElementById("h-s").innerHTML = `<b data-s="${st}">${txt.charAt(0).toUpperCase() + txt.slice(1)}</b> · Soll bis ${now.getHours()} Uhr ${fmt(erwartet, 1)} kWh` + (prog != null ? `<br>Tagesprognose ${fmt(prog, 1)} kWh` : "");
+    document.getElementById("h-s").innerHTML = `<b data-s="${st}">${txt.charAt(0).toUpperCase() + txt.slice(1)}</b> · Soll bis ${now.getHours()} Uhr ${fmt(erwartet, 1)} kWh` + (prog != null ? `· Tagesprognose ${fmt(prog, 1)} kWh` : "");
     document.getElementById("heute-datum").textContent = now.toLocaleDateString("de-DE", { weekday: "long" });
+    const W24 = data.wasser24 || {}, wz = document.getElementById("wasser");
+    const parts = [];
+    if (data.grundlast_w != null) parts.push(`<span><b data-s="${data.grundlast_w <= 40 ? "good" : data.grundlast_w <= 70 ? "ok" : "bad"}">${fmt(data.grundlast_w)} W</b> <small>Grundlast nachts</small></span>`);
+    if (W24.warm_l != null) parts.push(`<span><b>${fmt(W24.warm_l)} l</b> <small>warm · 24 h</small></span>`);
+    if (W24.kalt_l != null) parts.push(`<span><b>${fmt(W24.kalt_l)} l</b> <small>kalt · 24 h</small></span>`);
+    wz.hidden = !parts.length; wz.innerHTML = parts.join("");
   } else hb.hidden = true;
   // Letzte 24 Stunden je Stunde, gefärbt nach Preis in dieser Stunde
   const h24 = document.getElementById("h24"); h24.innerHTML = "";
@@ -628,9 +720,47 @@ function render(data) {
 
 function uhr() {
   const n = new Date();
-  document.getElementById("clock").textContent = n.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-  document.getElementById("date").textContent = n.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" });
+  const t = n.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }), d = n.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" });
+  for (const id of ["clock", "clock2"]) document.getElementById(id).textContent = t;
+  for (const id of ["date", "date2"]) document.getElementById(id).textContent = d;
 }
+function setTab(name) {
+  document.body.dataset.tab = name;
+  document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+  try { localStorage.setItem("tab", name); } catch (e) {}
+}
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
+(function () { let t = "energie"; try { t = location.hash === "#einkauf" ? "einkauf" : (localStorage.getItem("tab") || "energie"); } catch (e) {} setTab(t); })();
+
+// ---- Einkauf ----
+let EINKAUF = { items: [] };
+const eur = v => v == null ? "–" : v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+function renderEinkauf(e) {
+  const ul = document.getElementById("liste"); ul.innerHTML = "";
+  const items = e.items || [];
+  document.getElementById("einkauf-n").textContent = items.length ? items.length + " Artikel" : "";
+  if (!items.length) ul.innerHTML = '<li class="leer">Noch nichts auf der Liste</li>';
+  for (const it of items) {
+    const best = (it.offers || []).filter(o => !o.soon)[0];
+    ul.insertAdjacentHTML("beforeend", `<li><span>${it.name}${best ? `<small><b>${best.store}</b> ${eur(best.price)}${best.brand ? " · " + best.brand : ""}</small>` : ""}</span></li>`);
+  }
+  const ang = document.getElementById("angebote"); ang.innerHTML = "";
+  const all = [];
+  for (const it of items) for (const o of (it.offers || [])) all.push({ ...o, item: it.name });
+  if (!all.length) ang.innerHTML = '<span class="hinweis">' + (items.length ? "Keine Angebote für diese Artikel gefunden." : "Angebote erscheinen, sobald Artikel auf der Liste stehen.") + "</span>";
+  for (const o of all.slice(0, 14)) {
+    ang.insertAdjacentHTML("beforeend", `<div class="angebot"><div><div class="store">${o.store}${o.soon ? " · ab " + new Date(o.from + "T00:00").toLocaleDateString("de-DE", { weekday: "short" }) : ""}</div><div class="p">${o.brand ? o.brand + " " : ""}${o.product} <small>· ${o.desc || ""}</small></div></div><div class="pr"><b>${eur(o.price)}</b>${o.old ? ` <s>${eur(o.old)}</s>` : ""}${o.unit ? `<br><small>je ${o.unit}</small>` : ""}</div></div>`);
+  }
+  document.getElementById("einkauf-stand").textContent = e.updated ? "Stand " + e.updated.replace("T", " ") : "";
+  document.getElementById("einkauf-hinweis").innerHTML = e.telegram
+    ? 'Per Telegram an den Bot: <code>Milch, Eier</code> fügt hinzu · <code>x Milch</code> hakt ab · <code>leer</code> leert · <code>liste</code> zeigt die Liste.'
+    : 'Noch kein Telegram-Bot verbunden – <code>TELEGRAM_TOKEN</code> in Railway setzen.';
+}
+async function ladenEinkauf() {
+  try { const r = await fetch("einkauf.json", { cache: "no-store" }); if (r.ok) EINKAUF = await r.json(); } catch (e) {}
+  renderEinkauf(EINKAUF);
+}
+ladenEinkauf(); setInterval(ladenEinkauf, 60e3);
 let DATA = { live:{}, month:null, events:[] };
 async function laden() {
   try { const r = await fetch("data.json", { cache: "no-store" }); if (r.ok) DATA = await r.json(); } catch (e) {}

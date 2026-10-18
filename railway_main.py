@@ -25,7 +25,21 @@ def fetch_loop():
             print("fetch error:", e, flush=True)
         time.sleep(INTERVAL)
 
+def einkauf_loop():
+    while True:
+        try:
+            r = subprocess.run([sys.executable, os.path.join(HERE, "einkauf.py"), os.path.join(WWW, "einkauf.json.tmp")], capture_output=True, text=True, timeout=90,
+                               env={**os.environ, "EINKAUF_STATE": os.path.join(HERE, "einkauf_state.json")})
+            if r.returncode == 0:
+                os.replace(os.path.join(WWW, "einkauf.json.tmp"), os.path.join(WWW, "einkauf.json"))
+            else:
+                print("einkauf failed:", r.stderr.strip()[-300:], flush=True)
+        except Exception as e:
+            print("einkauf error:", e, flush=True)
+        time.sleep(int(os.environ.get("EINKAUF_INTERVAL", "60")))
+
 threading.Thread(target=fetch_loop, daemon=True).start()
+threading.Thread(target=einkauf_loop, daemon=True).start()
 os.environ.setdefault("TAFEL_PORT", os.environ.get("PORT", "8787"))
 os.environ["TAFEL_ROOT"] = WWW
 exec(open(os.path.join(HERE, "tafel_server.py")).read())

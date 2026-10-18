@@ -144,6 +144,8 @@ def fetch_raw(op, today):
            "m_warm": meter(op, "Warmwasser", "Monat", first.isoformat()),
            "m_waerme": meter(op, "Waerme", "Monat", first.isoformat()),
            "m_prev": meter(op, "Stromverbrauch", "Monat", prev.isoformat()),
+           "w24_kalt": meter(op, "Kaltwasser", "Letzte24h", today.isoformat()),
+           "w24_warm": meter(op, "Warmwasser", "Letzte24h", today.isoformat()),
            "jahr": meter(op, "Stromverbrauch", "Jahr", today.replace(month=1, day=1).isoformat())}
     raw["main_html"] = op.open(BASE + "/php/mainPage.php").read().decode("utf-8", "ignore")
     return raw
@@ -176,7 +178,18 @@ def build(raw, now, events, weather=None, departures=None):
         out = [{"d": (prev_first + dt.timedelta(days=i)).isoformat(), "v": v} for i, v in enumerate(prev_vals)]
         out += [{"d": (first + dt.timedelta(days=i)).isoformat(), "v": v} for i, v in enumerate(cur_vals)]
         return out[-14:]
-    daily_out = {"strom_kwh": dated(raw["m_prev"][0], strom_days), "kaltwasser_m3": dated([], daily["kaltwasser_m3"])}
+    daily_out = {"strom_kwh": dated(raw["m_prev"][0], strom_days), "kaltwasser_m3": dated([], daily["kaltwasser_m3"]), "warmwasser_m3": dated([], daily["warmwasser_m3"])}
+    # Wasser letzte 24 h in Litern (Viertelstundenwerte m³ → l)
+    def l24(key):
+        v = raw.get(key)
+        return round(sum(v[0]) * 1000) if v and v[0] else None
+    wasser24 = {"kalt_l": l24("w24_kalt"), "warm_l": l24("w24_warm")}
+    # Grundlast: kleinste Stundensumme der letzten 24 h (typisch nachts), in Watt
+    hour_sums = {}
+    for i, k in enumerate(kwh15):
+        hour_sums.setdefault(i // 4, 0); hour_sums[i // 4] += k
+    full_hours = [v for i, v in hour_sums.items() if i < len(kwh15) // 4]
+    grundlast_w = round(min(full_hours) * 1000) if full_hours else None
     ampel = raw["ampel"]
     return {
         "updated": now.isoformat(timespec="minutes"),
@@ -190,7 +203,10 @@ def build(raw, now, events, weather=None, departures=None):
         "price_24h": price_24h,
         "month": month,
         "daily": daily_out,
-        "today": {"strom_kwh": round(strom_days[-1], 2) if strom_days else None, "kaltwasser_m3": round(daily["kaltwasser_m3"][-1], 3) if daily["kaltwasser_m3"] else None},
+        "today": {"strom_kwh": round(strom_days[-1], 2) if strom_days else None, "kaltwasser_m3": round(daily["kaltwasser_m3"][-1], 3) if daily["kaltwasser_m3"] else None,
+                  "warmwasser_m3": round(daily["warmwasser_m3"][-1], 3) if daily["warmwasser_m3"] else None},
+        "wasser24": wasser24,
+        "grundlast_w": grundlast_w,
         "yesterday": {"strom_kwh": round(allstrom[-2], 2) if len(allstrom) >= 2 else None, "kaltwasser_m3": round(daily["kaltwasser_m3"][-2], 3) if len(daily["kaltwasser_m3"]) >= 2 else None},
         "week_avg_strom_kwh": round(sum(week) / len(week), 2) if week else None,
         "pv_today_kwh": round(sum(pv[1]) / 4),

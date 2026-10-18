@@ -6,3 +6,4 @@ package*.json
 _preview.html
 *.ics
 build_data.py
+einkauf_state.json
