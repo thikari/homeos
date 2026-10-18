@@ -201,7 +201,7 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
 .buch .was { font-weight: 600; } .buch .was small { display: block; color: var(--muted); font-weight: 500; font-size: .85em; }
 .buch li.jetzt .wann { color: var(--good); }
 .buch .leer { color: var(--muted); font-weight: 500; display: block; }
-.kosten { margin-top: 1.2em; }
+.kosten { margin-top: 1.6em; }
 .kosten h3 { margin: 0 0 .4em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--bad); font-weight: 700; }
 .kosten .kz { display: grid; grid-template-columns: 4.2em 1fr 5.5em 5em; gap: .7em; align-items: center; padding: .25em 0; font-size: .95em; }
 .kosten .km { font-weight: 600; } .kosten .kb { height: .55em; background: var(--soft); border-radius: 999px; overflow: hidden; } .kosten .kb i { display: block; height: 100%; background: var(--bad); border-radius: 999px; }
@@ -248,6 +248,38 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
   .unten { grid-template-columns: 1fr 1fr; gap: 1.6em 2.4em; }
   .geraete { gap: 1.2em 2em; }
   .einkauf { min-height: auto; }
+}
+/* ---------- Kleines Tablet quer (Fire 7 / HD 8: ~850–1024 × 530–600 px): alles auf eine Seite ---------- */
+@media (max-width: 1100px) and (min-width: 701px) and (max-height: 680px) and (orientation: landscape) {
+  body { font-size: 12px; padding-block: .5em 2.6em; }
+  .tafel { gap: .45em; }
+  .clock { font-size: 1.7em; }
+  .verdict { font-size: 2.1em; }
+  .verdict small { margin-top: .4em; }
+  .jetzt { gap: 1em; }
+  .geraete { gap: .5em 1.4em; margin-top: .4em; }
+  .preis { gap: 1.2em; }
+  .fenster { gap: .25em; }
+  .strip i { height: 9px; }
+  .unten { grid-template-columns: 1fr 1.25fr .9fr .9fr; gap: 1.2em; padding-top: .5em; }
+  .unten h2 { margin-bottom: .35em; }
+  .heute { gap: .2em; margin-bottom: .3em; }
+  .tage .bars { height: 18px; }
+  .einkauf, .mobil { min-height: auto; gap: 1.4em; }
+  .mobil { grid-template-columns: 1.15fr 1fr; }
+  .halte { gap: .7em; }
+  .tafel-ab .ab { padding: .18em 0; font-size: 1em; }
+  .fz li { padding: .2em 0; }
+  .fz svg { width: 1.3em; height: 1.3em; }
+  .buch li { padding: .3em 0; font-size: 1em; }
+  .kosten .kz { padding: .12em 0; }
+  .fz .st small { display: inline; margin-left: .5em; }
+  .fz .n small { display: inline; margin-left: .4em; }
+  .fz .n small .ort, .fz .st small.s2, .fz .st small.akku { display: none; }
+  .fz .n, .fz .st { white-space: nowrap; }
+  .liste li { font-size: 1.05em; padding: .3em 0; }
+  .ek-bar button { padding: .45em .8em; font-size: .9em; }
+  .tabs { bottom: .4em; }
 }
 /* ---------- Handy ---------- */
 @media (max-width: 700px) {
@@ -399,11 +431,11 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
     <div>
       <h2>Bahn &amp; Bus <span>Echtzeit · VRN</span></h2>
       <div class="halte" id="halte"></div>
+      <div class="kosten" id="kosten" hidden></div>
     </div>
     <div>
       <h2>Unsere Buchungen <span>FRANKLIN Mobil</span></h2>
       <ul class="buch" id="buch"><li><span class="leer">Lade …</span></li></ul>
-      <div class="kosten" id="kosten" hidden></div>
       <h2 style="margin-top:1.6em">Fahrzeuge in FRANKLIN <span id="fz-n"></span></h2>
       <ul class="fz" id="fz"><li class="leer">Lade …</li></ul>
     </div>
@@ -844,7 +876,7 @@ function renderMobil(m) {
   const stops = ["Franklin Mitte", "Franklinschule", "Pl. der Freundschaft"];
   const deps = (m.departures || []).map(d => ({ ...d, left: d.countdown - age })).filter(d => d.left >= 0);
   for (const st of stops) {
-    const rows = deps.filter(d => d.stop === st).slice(0, window.innerWidth < 700 ? 4 : 6);
+    const rows = deps.filter(d => d.stop === st).slice(0, window.innerWidth < 700 ? 4 : (window.innerHeight < 680 ? 4 : 6));
     const html = rows.length ? rows.map(d => { const cls = d.left <= 3 ? "soon" : (d.time !== d.plan ? "late" : "");
       return `<div class="ab"><span class="ln" data-type="${d.type}">${d.line}</span><span class="dir">→ ${richtung(d.dir)}</span><span class="pl">${d.time !== d.plan ? d.plan + " → " : ""}${d.time}</span><span class="cd ${cls}">${d.left <= 0 ? "jetzt" : d.left + " min"}</span></div>`; }).join("")
       : '<span class="leer">Keine Abfahrten gemeldet</span>';
@@ -858,9 +890,10 @@ function renderMobil(m) {
   for (const f of fz) {
     const bl = (f.belegt || []).map(b => ({ a: new Date(b.start), e: new Date(b.ende) })).filter(b => b.e > now);
     let slot = "", st = f.frei ? "frei" : "belegt";
+    let slot2 = "";
     if (f.frei) slot = bl.length ? `bis ${hhmm(bl[0].a)}` : "48 h frei";
-    else if (bl.length) { slot = `bis ${hhmm(bl[0].e)}`; if (bl[1]) slot += ` · dann bis ${hhmm(bl[1].a)} frei`; }
-    const inner = `${ICON_FZ[f.typ] || ICON_FZ["E-Auto"]}<span class="n">${f.name} <small>${f.kennung}${f.ort ? " · " + f.ort : ""}</small></span><span class="st">${st}${slot ? `<small>${slot}</small>` : ""}${f.akku != null ? `<small>${f.akku} %</small>` : ""}</span>`;
+    else if (bl.length) { slot = `bis ${hhmm(bl[0].e)}`; if (bl[1]) slot2 = `dann bis ${hhmm(bl[1].a)} frei`; }
+    const inner = `${ICON_FZ[f.typ] || ICON_FZ["E-Auto"]}<span class="n">${f.name} <small>${f.kennung}<span class="ort">${f.ort ? " · " + f.ort : ""}</span></small></span><span class="st">${st}${slot ? `<small>${slot}</small>` : ""}${slot2 ? `<small class="s2">${slot2}</small>` : ""}${f.akku != null ? `<small class="akku">${f.akku} %</small>` : ""}</span>`;
     ul.insertAdjacentHTML("beforeend", `<li class="${f.frei ? "" : "belegt"}">${f.link ? `<a href="${f.link}" target="_blank" rel="noopener">${inner}</a>` : inner}</li>`);
   }
   const ko = document.getElementById("kosten"), ks = (m.mobil && m.mobil.kosten) || [];
