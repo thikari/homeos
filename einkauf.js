@@ -70,15 +70,29 @@
     };
     // --- Sprechen ---
     const modeMic = () => {
-      open("mic", `<div class="ek-sprech">Ich höre …</div><div class="ek-status">Sag z. B. „Milch, Eier und Windeln“. Tippe auf Sprechen, um zu beenden.</div>`);
+      open("mic", `<div class="ek-sprech">Ich höre …</div><div class="ek-status">Sag z. B. „Milch, Eier und Windeln“ – nach einer kurzen Pause wird es übernommen.</div>`);
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition; const r = new SR();
-      r.lang = "de-DE"; r.interimResults = true; r.continuous = false;
-      const out = panel.querySelector(".ek-sprech"); let final = "";
-      r.onresult = (e) => { let t = ""; for (const res of e.results) { t += res[0].transcript; if (res.isFinal) final = t; } out.textContent = t || "Ich höre …"; };
-      r.onerror = (e) => status("Spracherkennung: " + e.error);
-      r.onend = async () => { if (final.trim()) { const txt = final.replace(/\s+(und|and)\s+/gi, ", "); out.textContent = txt; status("…"); status(await add(txt)); } else status("Nichts verstanden – nochmal auf Sprechen tippen."); mount.querySelector('[data-m="mic"]').classList.remove("aktiv"); aktiv = null; };
-      stopFn = () => r.stop();
+      r.lang = "de-DE"; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
+      const out = panel.querySelector(".ek-sprech"); let text = "", done = false, still = null;
+      const stop = () => { clearTimeout(still); try { r.stop(); } catch (e) {} };
+      const fertig = async () => {
+        if (done) return; done = true; stop();
+        try { r.abort(); } catch (e) {}
+        const txt = text.trim().replace(/\s+(und|and)\s+/gi, ", ").replace(/[.!?]+$/, "");
+        if (txt) { out.textContent = txt; status("…"); status(await add(txt)); setTimeout(() => { if (aktiv === "mic") close(); }, 1500); }
+        else { status("Nichts verstanden – nochmal auf Sprechen tippen."); mount.querySelector('[data-m="mic"]').classList.remove("aktiv"); aktiv = null; }
+      };
+      r.onresult = (e) => {
+        let t = ""; for (const res of e.results) t += res[0].transcript;
+        text = t; out.textContent = t || "Ich höre …";
+        clearTimeout(still); still = setTimeout(stop, 1800);           // 1,8 s Pause → fertig
+        if (e.results[e.results.length - 1].isFinal) stop();
+      };
+      r.onerror = (e) => { if (e.error !== "aborted" && e.error !== "no-speech") status("Spracherkennung: " + e.error); fertig(); };
+      r.onend = fertig;
+      stopFn = () => { done = true; stop(); try { r.abort(); } catch (e) {} };
       r.start();
+      still = setTimeout(stop, 8000);                                     // nie länger als 8 s offen
     };
     // --- Foto ---
     const modeCam = () => {
