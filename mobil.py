@@ -13,6 +13,9 @@ API = "https://de1.cantamen.de/casirest/v3/"
 API_KEY = os.environ.get("FRANKLIN_API_KEY", "f04347c1-f2ad-0b05-fd65-49d5d4d3552b")   # öffentlicher Key der Web-App buchung.franklin-mobil.de
 PROV = "117"                                                                              # FRANKLIN Mobil GmbH
 LAT, LNG = 49.520325, 8.533892                                                            # Franklin Mitte
+STOP_LINKS = {"Franklin Mitte": "https://www.vrn.de/mng/#/XSLT_DM_REQUEST?language=de&type_dm=stop&useRealtime=1&mode=direct&dm=6003053",
+              "Franklinschule": "https://www.vrn.de/mng/#/XSLT_DM_REQUEST?language=de&type_dm=stop&useRealtime=1&mode=direct&dm=6003057",
+              "Pl. der Freundschaft": "https://www.vrn.de/mng/#/XSLT_DM_REQUEST?language=de&type_dm=stop&useRealtime=1&mode=direct&dm=6002367"}
 TOKEN_FILE = os.environ.get("MOBIL_TOKEN_FILE", os.path.join(os.path.dirname(os.environ.get("EINKAUF_STATE", HERE + "/x")), "mobil_token.json"))
 
 def _req(path, token=None, method="GET", body=None):
@@ -39,11 +42,41 @@ def fahrzeuge():
         if "FRANKLIN" not in place.upper() and "George-Washington" not in place:
             continue                                    # Spinelli, Schriesheim, Rheinau ausblenden
         cat = (b.get("bookeeProduct") or {}).get("bookeeCategory", "")
+        # Belegte Zeitfenster der nächsten 48 h (öffentlich, ohne Login)
+        bloecke = []
+        try:
+            _, un = _req(f"unavailabilities?bookeeId={b['id']}&start={iso(now)}&end={iso(now + dt.timedelta(hours=48))}")
+            for u in (un[0].get("unavailabilityTimeRanges") if un else []) or []:
+                tr = u.get("timeRange") or {}
+                a, e = _ts(tr.get("start")), _ts(tr.get("end"))
+                if a and e and e > now:
+                    bloecke.append((max(a, now), e))
+        except Exception as ex:
+            print("unavailabilities", b["id"], ex, file=sys.stderr)
+        bloecke.sort()
+        merged = []
+        for a, e in bloecke:                            # überlappende Blöcke zusammenfassen
+            if merged and a <= merged[-1][1] + dt.timedelta(minutes=1):
+                merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+            else:
+                merged.append((a, e))
+        jetzt_belegt = bool(merged) and merged[0][0] <= now + dt.timedelta(minutes=1)
         out.append({"id": b["id"], "name": b.get("displayName") or b.get("name"), "kennung": b.get("licenseNumber", ""),
                     "typ": "Lastenrad" if cat == "CARGO_BIKE" else "E-Auto", "ort": place.replace(" (FRANKLIN)", ""),
-                    "akku": b.get("fuelLevel"), "frei": b["id"] in frei})
+                    "akku": b.get("fuelLevel"), "frei": (b["id"] in frei) and not jetzt_belegt,
+                    "belegt": [{"start": a.isoformat(), "ende": e.isoformat()} for a, e in merged[:4]],
+                    "link": f"https://buchung.franklin-mobil.de/#/49.5203-8.5339-15-0/bookee/{b['id']}"})
     out.sort(key=lambda x: (x["typ"] != "E-Auto", not x["frei"], x["ort"], x["name"]))
     return out
+
+def _ts(v):
+    if not v:
+        return None
+    v = v.replace("Z", "+00:00")
+    try:
+        return dt.datetime.fromisoformat(v).astimezone(dt.timezone.utc)
+    except ValueError:
+        return None
 
 def _load_token():
     try:
@@ -99,7 +132,8 @@ def buchungen(fz):
 def main():
     outp = sys.argv[1] if len(sys.argv) > 1 else "mobil.json"
     errors = []
-    res = {"updated": dt.datetime.now().isoformat(timespec="minutes"), "departures": [], "mobil": {"fahrzeuge": [], "buchungen": [], "login": bool(os.environ.get("FRANKLIN_LOGIN"))}}
+    res = {"updated": dt.datetime.now().isoformat(timespec="minutes"), "departures": [], "stops": STOP_LINKS,
+           "mobil": {"fahrzeuge": [], "buchungen": [], "login": bool(os.environ.get("FRANKLIN_LOGIN")), "link": "https://buchung.franklin-mobil.de/#/49.5203-8.5339-15-0/account/bookings"}}
     try:
         spec = importlib.util.spec_from_file_location("enocoo_fetch", os.path.join(HERE, "enocoo_fetch.py")); E = importlib.util.module_from_spec(spec); spec.loader.exec_module(E)
         res["departures"] = E.fetch_departures(limit=60)

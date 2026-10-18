@@ -174,6 +174,7 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
 .mobil h2 { margin: 0 0 .9em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
 .mobil h2 span { font-weight: 500; letter-spacing: 0; text-transform: none; font-family: var(--mono); }
 .halte { display: grid; gap: 1.6em; }
+.halte h3 a { color: inherit; text-decoration: none; }
 .halte h3 { margin: 0 0 .35em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--bad); font-weight: 700; display: flex; justify-content: space-between; }
 .halte h3 span { color: var(--muted); font-weight: 500; letter-spacing: 0; text-transform: none; }
 .tafel-ab { display: grid; gap: .15em; }
@@ -186,15 +187,18 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
 .tafel-ab .cd.soon { color: var(--good); } .tafel-ab .cd.late { color: var(--warn); }
 .tafel-ab .leer { color: var(--muted); font-size: .9em; }
 .fz { list-style: none; margin: 0 0 1.8em; padding: 0; }
-.fz li { display: grid; grid-template-columns: 2em 1fr auto; gap: .8em; align-items: center; padding: .38em 0; border-bottom: 1px solid var(--line); }
+.fz li { padding: .38em 0; border-bottom: 1px solid var(--line); }
+.fz li > a, .fz li > span { display: grid; grid-template-columns: 2em 1fr auto; gap: .8em; align-items: center; color: inherit; text-decoration: none; }
+.fz li > a { cursor: pointer; }
 .fz li.belegt { opacity: .45; }
 .fz svg { width: 1.7em; height: 1.7em; stroke: var(--fg); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .fz .n { font-weight: 700; } .fz .n small { display: block; font-weight: 500; color: var(--muted); font-size: .78em; }
 .fz .st { font-size: .78em; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--good); white-space: nowrap; }
 .fz li.belegt .st { color: var(--muted); }
-.fz .st small { display: block; font-family: var(--mono); font-weight: 500; letter-spacing: 0; text-transform: none; text-align: right; }
+.fz .st small { display: block; font-family: var(--mono); font-weight: 500; letter-spacing: 0; text-transform: none; text-align: right; font-size: .95em; }
 .buch { list-style: none; margin: 0; padding: 0; }
-.buch li { display: grid; grid-template-columns: auto 1fr; gap: 1em; align-items: baseline; padding: .55em 0; font-size: 1.1em; border-bottom: 1px solid var(--line); }
+.buch li { padding: .55em 0; font-size: 1.1em; border-bottom: 1px solid var(--line); }
+.buch li > a { display: grid; grid-template-columns: auto 1fr; gap: 1em; align-items: baseline; color: inherit; text-decoration: none; }
 .buch .wann { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
 .buch .wann small { display: block; font-weight: 500; color: var(--muted); }
 .buch .was { font-weight: 600; } .buch .was small { display: block; color: var(--muted); font-weight: 500; font-size: .85em; }
@@ -294,7 +298,7 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
   <header>
     <div><div class="clock" id="clock">--:--</div><div class="date" id="date"></div></div>
     <div class="kopfrechts">
-      <div class="abfahrten" id="abfahrten"><span class="leer">Keine Abfahrten</span></div>
+      <div class="abfahrten" id="abfahrten" hidden></div>
       <div class="wx-now" id="wxnow" hidden><div><div class="t" id="wx-t">–</div><div class="d" id="wx-d"></div></div><span id="wx-i"></span></div>
     </div>
   </header>
@@ -815,9 +819,8 @@ function render(data) {
   const errs = data.errors && Object.keys(data.errors).length ? Object.entries(data.errors).map(([k, v]) => k + ": " + v).join(" · ") : "";
   if (alterMin == null) { stale.hidden = false; stale.textContent = "Keine Daten – Fetcher läuft nicht"; }
   else if (errs) { stale.hidden = false; stale.textContent = "Fehler beim Abruf – " + errs; }
-  else if (alterMin > 20) { stale.hidden = false; stale.textContent = `Keine neuen Daten seit ${new Date(data.updated).toLocaleString("de-DE", { weekday: "short", hour: "2-digit", minute: "2-digit" })} (${alterMin < 120 ? alterMin + " Minuten" : Math.round(alterMin / 60) + " Stunden"}) – Preis und Abfahrten sind veraltet`; document.getElementById("abfahrten").innerHTML = '<span class="leer">Abfahrten veraltet</span>'; }
+  else if (alterMin > 20) { stale.hidden = false; stale.textContent = `Keine neuen Daten seit ${new Date(data.updated).toLocaleString("de-DE", { weekday: "short", hour: "2-digit", minute: "2-digit" })} (${alterMin < 120 ? alterMin + " Minuten" : Math.round(alterMin / 60) + " Stunden"}) – Preis ist veraltet`; }
   else stale.hidden = true;
-  if (alterMin != null && alterMin <= 20 && errs && !/portal/.test(errs)) document.getElementById("abfahrten").hidden = false;
 
   // Footer
   const L = data.live || {};
@@ -857,12 +860,21 @@ function renderMobil(m) {
     const html = rows.length ? rows.map(d => { const cls = d.left <= 3 ? "soon" : (d.time !== d.plan ? "late" : "");
       return `<div class="ab"><span class="ln" data-type="${d.type}">${d.line}</span><span class="dir">→ ${richtung(d.dir)}</span><span class="pl">${d.time !== d.plan ? d.plan + " → " : ""}${d.time}</span><span class="cd ${cls}">${d.left <= 0 ? "jetzt" : d.left + " min"}</span></div>`; }).join("")
       : '<span class="leer">Keine Abfahrten gemeldet</span>';
-    halte.insertAdjacentHTML("beforeend", `<div><h3>${st} <span>${st === "Pl. der Freundschaft" ? "Linie 5 · Bus" : "Linie 16 · Bus"}</span></h3><div class="tafel-ab">${html}</div></div>`);
+    const link = (m.stops || {})[st];
+    halte.insertAdjacentHTML("beforeend", `<div><h3>${link ? `<a href="${link}" target="_blank" rel="noopener">${st} ↗</a>` : st} <span>${st === "Pl. der Freundschaft" ? "Linie 5 · Bus" : "Linie 16 · Bus"}</span></h3><div class="tafel-ab">${html}</div></div>`);
   }
   const fz = (m.mobil && m.mobil.fahrzeuge) || [], ul = document.getElementById("fz"); ul.innerHTML = "";
   document.getElementById("fz-n").textContent = fz.length ? `${fz.filter(f => f.frei).length} von ${fz.length} frei` : "";
   if (!fz.length) ul.innerHTML = '<li class="leer">Keine Fahrzeugdaten</li>';
-  for (const f of fz) ul.insertAdjacentHTML("beforeend", `<li class="${f.frei ? "" : "belegt"}">${ICON_FZ[f.typ] || ICON_FZ["E-Auto"]}<span class="n">${f.name} <small>${f.kennung}${f.ort ? " · " + f.ort : ""}</small></span><span class="st">${f.frei ? "frei" : "belegt"}${f.akku != null ? `<small>${f.akku} %</small>` : ""}</span></li>`);
+  const hhmm = (iso) => { const d = new Date(iso); const heute = d.toDateString() === now.toDateString(); return (heute ? "" : d.toLocaleDateString("de-DE", { weekday: "short" }) + " ") + d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }); };
+  for (const f of fz) {
+    const bl = (f.belegt || []).map(b => ({ a: new Date(b.start), e: new Date(b.ende) })).filter(b => b.e > now);
+    let slot = "", st = f.frei ? "frei" : "belegt";
+    if (f.frei) slot = bl.length ? `bis ${hhmm(bl[0].a)}` : "48 h frei";
+    else if (bl.length) { slot = `bis ${hhmm(bl[0].e)}`; if (bl[1]) slot += ` · dann bis ${hhmm(bl[1].a)} frei`; }
+    const inner = `${ICON_FZ[f.typ] || ICON_FZ["E-Auto"]}<span class="n">${f.name} <small>${f.kennung}${f.ort ? " · " + f.ort : ""}</small></span><span class="st">${st}${slot ? `<small>${slot}</small>` : ""}${f.akku != null ? `<small>${f.akku} %</small>` : ""}</span>`;
+    ul.insertAdjacentHTML("beforeend", `<li class="${f.frei ? "" : "belegt"}">${f.link ? `<a href="${f.link}" target="_blank" rel="noopener">${inner}</a>` : inner}</li>`);
+  }
   const bl = document.getElementById("buch"); bl.innerHTML = "";
   const bs = (m.mobil && m.mobil.buchungen) || [];
   if (!m.mobil || !m.mobil.login) bl.innerHTML = '<li><span class="leer">Kein FRANKLIN-Mobil-Login hinterlegt (FRANKLIN_LOGIN / FRANKLIN_PASS).</span></li>';
@@ -873,7 +885,8 @@ function renderMobil(m) {
     const jetzt = a <= now && now <= e;
     const tag = a.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short" });
     const z = a.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) + " – " + (sameDay ? "" : e.toLocaleDateString("de-DE", { weekday: "short", day: "numeric" }) + " ") + e.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-    bl.insertAdjacentHTML("beforeend", `<li class="${jetzt ? "jetzt" : ""}"><span class="wann">${jetzt ? "jetzt" : tag}<small>${z}</small></span><span class="was">${b.fahrzeug} <small>${b.kennung}${b.ort ? " · " + b.ort : ""}</small></span></li>`);
+    const inner = `<span class="wann">${jetzt ? "jetzt" : tag}<small>${z}</small></span><span class="was">${b.fahrzeug} <small>${b.kennung}${b.ort ? " · " + b.ort : ""}</small></span>`;
+    bl.insertAdjacentHTML("beforeend", `<li class="${jetzt ? "jetzt" : ""}">${m.mobil.link ? `<a href="${m.mobil.link}" target="_blank" rel="noopener">${inner}</a>` : inner}</li>`);
   }
 }
 async function ladenMobil() {
