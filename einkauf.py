@@ -7,7 +7,8 @@ Die Liste wird über die Handy-Seite /<token>/einkauf/ gepflegt (tafel_server.py
     "leer"                   → Liste leeren
 Angebote: marktguru-Web-API (Schlüssel von marktguru.de, kein Account). PLZ über ANGEBOTE_PLZ, Standard 68309.
 """
-import os, sys, json, re, time, urllib.request, urllib.parse, datetime as dt
+import os, sys, json, re, time, urllib.request, urllib.parse, datetime as dt, importlib.util
+_sp = importlib.util.spec_from_file_location("speicher", os.path.join(os.path.dirname(os.path.abspath(__file__)), "speicher.py")); SPEICHER = importlib.util.module_from_spec(_sp); _sp.loader.exec_module(SPEICHER)
 
 STATE = os.environ.get("EINKAUF_STATE", "einkauf_state.json")
 PLZ = os.environ.get("ANGEBOTE_PLZ", "68309")
@@ -21,10 +22,7 @@ _col = None
 def _mongo():
     global _col
     if _col is None:
-        from pymongo import MongoClient
-        c = MongoClient(MONGO, serverSelectionTimeoutMS=8000)
-        db = c.get_default_database(default="homeos")
-        _col = db["einkauf"]
+        _col = SPEICHER.db()["einkauf"]
     return _col
 
 LEER = {"items": [], "offset": 0, "offers": {}, "offers_at": None, "uebernahme": {}}
@@ -164,12 +162,15 @@ def apply_message(state, text, who):
     low = t.lower()
     items = state["items"]
     if low in ("leer", "clear", "/leer", "/clear"):
-        state["items"] = []; state["uebernahme"] = {}; return "Liste geleert."
+        state["items"] = []; state["uebernahme"] = {}; SPEICHER.log_einkauf("geleert", who); return "Liste geleert."
     if low in ("liste", "/liste", "/list", "/start"):
         return "Einkaufsliste:\n" + ("\n".join("• " + i["name"] for i in items) if items else "(leer)")
     m = re.match(r"^(x|-|✓|✔|done|weg|erledigt)\s+(.+)$", t, re.I)
     if m:
         q = m[2].strip().lower(); before = len(items)
+        for i in items:
+            if q in i["name"].lower():
+                SPEICHER.log_einkauf("abgehakt", who, i["name"], i.get("kat"), i.get("q"))
         state["items"] = [i for i in items if q not in i["name"].lower()]
         n = before - len(state["items"])
         return f"Abgehakt: {m[2].strip()}" if n else f"„{m[2].strip()}“ steht nicht auf der Liste."
@@ -191,7 +192,7 @@ def apply_message(state, text, who):
             d = deutsch(name)
             if d.lower() != name.lower():
                 it["q"] = d                               # deutscher Suchbegriff für Angebote, z. B. "milk" → "Milch"
-            items.append(it); added.append(name)
+            items.append(it); added.append(name); SPEICHER.log_einkauf("dazu", who, name, it["kat"], it.get("q"))
     return ("Dazu: " + ", ".join(added)) if added else "Steht schon drauf."
 
 def search_offers(q, limit=6):
@@ -237,6 +238,7 @@ def claim(state, kat, who):
             ue.pop(k, None)
         else:
             ue[k] = {"wer": who, "at": dt.datetime.now().isoformat(timespec="minutes")}
+    SPEICHER.log_einkauf("freigegeben" if release else "uebernommen", who, kat=kat)
     return "Freigegeben." if release else f"{who} übernimmt {'alles' if kat == 'alle' else kat}."
 
 def export(state, outp):

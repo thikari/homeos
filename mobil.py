@@ -7,6 +7,7 @@ FRANKLIN Mobil:
 Aufruf: mobil.py OUT.json   → {updated, departures, mobil:{fahrzeuge, buchungen, login}, errors}
 """
 import os, sys, json, base64, datetime as dt, urllib.request, urllib.parse, importlib.util
+_sp = importlib.util.spec_from_file_location("speicher", os.path.join(os.path.dirname(os.path.abspath(__file__)), "speicher.py")); SPEICHER = importlib.util.module_from_spec(_sp); _sp.loader.exec_module(SPEICHER)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 API = "https://de1.cantamen.de/casirest/v3/"
@@ -116,11 +117,18 @@ def buchungen(fz):
     byid = {f["id"]: f for f in fz}
     out = []
     kosten = {}                                          # "YYYY-MM" → {"eur": float, "fahrten": n}
+    global ROH
+    ROH = []
     for b in bs or []:
         if (b.get("bookingState") or b.get("state") or "").upper() in ("CANCELLED", "STORNIERT", "CANCELED"):
             continue
         tr0 = b.get("timeRange") or {}
         a0 = _ts(tr0.get("start"))
+        bk0 = b.get("bookee") or {}; f0 = byid.get(str(b.get("bookeeId") or bk0.get("id")), {})
+        items0 = ((b.get("price") or {}).get("priceItems")) or []
+        ROH.append({"id": str(b.get("id")), "start": tr0.get("start"), "ende": tr0.get("end"), "fahrzeug": f0.get("name") or bk0.get("displayName"), "kennung": f0.get("kennung") or bk0.get("licenseNumber"),
+                    "typ": f0.get("typ"), "ort": f0.get("ort"), "eur": round(sum(int((it.get("priceIncl") or {}).get("amount") or 0) for it in items0) / 100, 2) if items0 else None,
+                    "posten": [{"art": it.get("costCategory"), "eur": int((it.get("priceIncl") or {}).get("amount") or 0) / 100} for it in items0], "status": b.get("bookingState") or b.get("state")})
         if a0 and a0 < now - dt.timedelta(hours=12):      # vergangene Fahrt → nur Kosten zählen
             items = ((b.get("price") or {}).get("priceItems")) or []
             cents = sum(int((it.get("priceIncl") or {}).get("amount") or 0) for it in items)
@@ -141,6 +149,7 @@ def buchungen(fz):
     KOSTEN = [{"monat": k, "eur": round(v["eur"], 2), "fahrten": v["fahrten"]} for k, v in sorted(kosten.items(), reverse=True)][:12]
     return out, None
 KOSTEN = []
+ROH = []
 
 def main():
     outp = sys.argv[1] if len(sys.argv) > 1 else "mobil.json"
@@ -164,6 +173,11 @@ def main():
     except Exception as e:
         errors.append(f"FRANKLIN Mobil Buchungen: {e}")
     res["errors"] = errors
+    try:
+        if SPEICHER.aktiv():
+            print("archiv:", SPEICHER.archiviere_mobil(res, ROH))
+    except Exception as e:
+        errors.append(f"Archiv: {e}")
     tmp = outp + ".tmp"
     json.dump(res, open(tmp, "w", encoding="utf-8"), ensure_ascii=False, indent=1); os.replace(tmp, outp)
     print(f"mobil: {len(res['departures'])} Abfahrten, {len(fz)} Fahrzeuge ({sum(f['frei'] for f in fz)} frei), {len(res['mobil']['buchungen'])} Buchungen" + (f", Fehler: {errors}" if errors else ""))

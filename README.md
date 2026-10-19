@@ -101,3 +101,19 @@ Mit `TAFEL_PIN` (Railway-Variable) zeigt die Startseite `https://<domain>/` eine
 ## Dauerhafter Speicher (wichtig)
 
 Einkaufsliste: entweder `MONGODB_URI` setzen (Railway-MongoDB oder Atlas; Collection `einkauf`, Dokument `liste`) – oder Datei in `DATA_DIR`. Auf Railway: im Service **Volume** anlegen mit Mount-Pfad `/app/data` – wird automatisch erkannt (Log: „Datenordner: /app/data (persistent)"). Ohne Volume ist die Liste nach jedem Deploy leer.
+
+## MongoDB-Schema (mit `MONGODB_URI`)
+
+| Collection | Schlüssel | Inhalt | Woher |
+|---|---|---|---|
+| `einkauf` | `_id: "liste"` | aktuelle Einkaufsliste (items, uebernahme, offers) | Handy/Tafel |
+| `einkauf_log` | `at` | jede Aktion: dazu · abgehakt · geleert · uebernommen · freigegeben, mit `wer`, `name`, `kat` | Handy/Tafel |
+| `energie_15min` | `t` (eindeutig) | Strompreis ct/kWh und Verbrauch kWh je Viertelstunde – wächst über die 24 h des Portals hinaus | enocoo, alle 5 min |
+| `energie_tage` | `d` | Strom kWh, Kalt-/Warmwasser m³, PV kWh, Grundlast W je Tag | enocoo |
+| `energie_monate` | `ym` | Monatsstand Strom/Wasser/Wärme, Kosten €, Solar-Ersparnis € | enocoo |
+| `energie_live` | `at` | Leistung W, Preis, Ampel, PV kW, Siedlung kW, Autarkie je Abruf | enocoo |
+| `wetter_tage` | `d` | Tmin/Tmax, Wettercode, Regen | Open-Meteo |
+| `mobil_buchungen` | `id` | jede FRANKLIN-Mobil-Buchung mit Fahrzeug, Zeit, Preis und Posten (Fahrzeit, Km, Gebühr) | Cantamen, alle 2 min |
+| `mobil_fahrzeuge` | `at` | Verfügbarkeit/Akku aller Fahrzeuge je Abruf (für Auslastungs-Statistik) | Cantamen |
+
+Alles wird nur ergänzt bzw. per Schlüssel aktualisiert – nichts wird gelöscht. Indizes werden beim ersten Start angelegt.

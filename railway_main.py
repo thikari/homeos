@@ -26,6 +26,9 @@ def fetch_loop():
             if r.returncode == 0:
                 os.replace(os.path.join(WWW, "data.json.tmp"), os.path.join(WWW, "data.json"))
                 print(r.stdout.strip(), flush=True)
+                if os.environ.get("MONGODB_URI"):
+                    a = subprocess.run([sys.executable, os.path.join(HERE, "speicher.py"), os.path.join(WWW, "data.json")], capture_output=True, text=True, timeout=60)
+                    print("archiv:", (a.stdout or a.stderr).strip()[-200:], flush=True)
             else:
                 print("fetch failed:", r.stderr.strip()[-500:], flush=True)
         except Exception as e:
