@@ -211,17 +211,21 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
 .einkauf h2 { margin: 0 0 .9em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
 .einkauf h2 span { font-weight: 500; letter-spacing: 0; text-transform: none; font-family: var(--mono); }
 .gruppen { display: grid; grid-template-columns: 1fr 1fr; gap: 2em; }
-.gruppe h3 { margin: 0 0 .4em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--bad); font-weight: 700; display: flex; justify-content: space-between; }
+.gruppe h3 { margin: 0 0 .4em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--bad); font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: .6em; }
+.gruppe h3 > span { white-space: nowrap; display: flex; align-items: center; }
 .gruppe h3 span { color: var(--muted); font-weight: 500; letter-spacing: 0; text-transform: none; font-family: var(--mono); }
 .gruppe + .gruppe { margin-top: 1.4em; }
 .liste { list-style: none; margin: 0; padding: 0; }
-.liste li { break-inside: avoid; display: grid; grid-template-columns: 1.1em 1fr; gap: .7em; align-items: start; padding: .5em 0; border-bottom: 1px solid var(--line); font-size: 1.25em; font-weight: 600; }
+.liste li { break-inside: avoid; display: grid; grid-template-columns: 1.1em 1fr auto; gap: .7em; align-items: start; padding: .5em 0; border-bottom: 1px solid var(--line); font-size: 1.25em; font-weight: 600; }
 .liste li > span { min-width: 0; }
 .liste li i { display: block; width: .95em; height: .95em; border: 2px solid var(--line); border-radius: 5px; margin-top: .25em; box-sizing: content-box; cursor: pointer; }
 .liste li i::after { content: ""; display: block; width: 1.4em; height: 1.4em; margin: -.35em; }
 .liste li.leer i { display: none; }
 .liste li small { display: block; font-size: .62em; font-weight: 500; color: var(--muted); }
 .liste li small b { color: var(--good); font-weight: 700; }
+.liste .von { font-size: .6em; width: 1.7em; height: 1.7em; border-radius: 50%; background: var(--soft); color: var(--muted); display: grid; place-items: center; font-weight: 700; margin-top: .3em; }
+.gruppe h3 .claim { font: inherit; font-size: .9em; letter-spacing: .06em; padding: .2em .7em; margin-left: .6em; border-radius: 999px; border: 1.5px solid var(--line); background: var(--bg); color: var(--muted); cursor: pointer; }
+.gruppe h3 .claim.on { background: var(--good); border-color: var(--good); color: #fff; }
 .liste .leer { display: block; color: var(--muted); font-weight: 500; font-size: 1em; border: 0; }
 .liste .leer::before { display: none; }
 .angebote { display: grid; gap: .55em; }
@@ -937,11 +941,15 @@ function renderEinkauf(e) {
   const spalte1 = document.createElement("div"), spalte2 = document.createElement("div");
   KAT.forEach(([k, label], idx) => {
     if (!col[k].length) return;
-    const lis = col[k].map(it => { const best = (it.offers || []).filter(o => !o.soon)[0]; return `<li data-name="${it.name.replace(/"/g, "&quot;")}"><i></i><span>${it.name}${it.q ? ` <small style="display:inline;opacity:.7">${it.q}</small>` : ""}${best ? `<small><b>${best.store}</b> ${eur(best.price)}${best.brand ? " · " + best.brand : ""}</small>` : ""}</span></li>`; }).join("");
-    const html = `<div class="gruppe"><h3>${label} <span>${col[k].length}</span></h3><ul class="liste">${lis}</ul></div>`;
+    const lis = col[k].map(it => { const best = (it.offers || []).filter(o => !o.soon)[0]; const von = it.by && it.by !== "Handy" && it.by !== "Tafel" ? `<b class="von" title="${it.by}">${it.by[0]}</b>` : ""; return `<li data-name="${it.name.replace(/"/g, "&quot;")}"><i></i><span>${it.name}${it.q ? ` <small style="display:inline;opacity:.7">${it.q}</small>` : ""}${best ? `<small><b>${best.store}</b> ${eur(best.price)}${best.brand ? " · " + best.brand : ""}</small>` : ""}</span>${von}</li>`; }).join("");
+    const ue = (e.uebernahme || {})[k];
+    const html = `<div class="gruppe"><h3>${label} <span>${col[k].length} <button class="claim ${ue ? "on" : ""}" data-kat="${k}">${ue ? ue.wer + " kauft" : "übernehmen"}</button></span></h3><ul class="liste">${lis}</ul></div>`;
     (k === "vorrat" ? spalte1 : spalte2).insertAdjacentHTML("beforeend", html);
   });
-  gr.onclick = async (ev) => { if (!ev.target.closest("li[data-name] > i")) return; const li = ev.target.closest("li[data-name]"); li.style.opacity = ".35"; li.style.textDecoration = "line-through";
+  gr.onclick = async (ev) => {
+    const cb = ev.target.closest("button.claim");
+    if (cb) { try { const r = await fetch("einkauf/claim", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "kat=" + cb.dataset.kat + "&wer=" + encodeURIComponent((window.einkaufWer && einkaufWer()) || "Tafel") }); if (r.ok) { EINKAUF = await r.json(); renderEinkauf(EINKAUF); } } catch (e) {} return; }
+    if (!ev.target.closest("li[data-name] > i")) return; const li = ev.target.closest("li[data-name]"); li.style.opacity = ".35"; li.style.textDecoration = "line-through";
     try { const r = await fetch("einkauf/add", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "text=" + encodeURIComponent("x " + li.dataset.name) }); if (r.ok) { EINKAUF = await r.json(); renderEinkauf(EINKAUF); } } catch (e) {} };
   if (items.length) { gr.appendChild(spalte1); gr.appendChild(spalte2); }
   const ang = document.getElementById("angebote"); ang.innerHTML = "";
@@ -959,7 +967,7 @@ async function ladenEinkauf() {
   renderEinkauf(EINKAUF);
 }
 ladenEinkauf(); setInterval(ladenEinkauf, 60e3);
-if (window.initEinkauf) initEinkauf({ mount: document.getElementById("ek"), base: location.pathname.replace(/\/$/, ""), onUpdate: (j) => { EINKAUF = j; renderEinkauf(j); } });
+if (window.initEinkauf) initEinkauf({ mount: document.getElementById("ek"), base: location.pathname.replace(/\/$/, ""), onUpdate: (j) => { EINKAUF = j; renderEinkauf(j); }, getData: () => EINKAUF });
 let DATA = { live:{}, month:null, events:[] };
 async function laden() {
   try { const r = await fetch("data.json", { cache: "no-store" }); if (r.ok) DATA = await r.json(); } catch (e) {}

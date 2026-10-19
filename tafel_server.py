@@ -31,7 +31,10 @@ li i::after{content:"";position:absolute;inset:-.6rem}
 li small{display:block;font-size:.8rem;font-weight:500;color:var(--muted)}
 li small b{color:var(--good)}
 li.done{opacity:.35;text-decoration:line-through}
-li.kat{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bad);font-weight:700;border:0;padding:1.1rem 0 .2rem}
+li.kat{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bad);font-weight:700;border:0;padding:1.1rem 0 .2rem;justify-content:space-between}
+li.kat .claim{font:inherit;font-size:.7rem;letter-spacing:.06em;padding:.3rem .7rem;border-radius:999px;border:1.5px solid var(--line);background:#fff;color:var(--muted)}
+li.kat .claim.on{background:var(--good);border-color:var(--good);color:#fff}
+li .von{margin-left:auto;font-size:.75rem;width:1.5rem;height:1.5rem;border-radius:50%;background:var(--soft);color:var(--muted);display:grid;place-items:center;flex:none}
 .leer{color:var(--muted);font-weight:500}
 .hint{color:var(--muted);font-size:.85rem;margin-top:1.2rem;line-height:1.5}
 .row{display:flex;justify-content:space-between;align-items:center}
@@ -46,13 +49,15 @@ li.kat{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(
 const base = location.pathname.replace(/\/einkauf\/?$/, "");
 async function load(){ const r = await fetch(base + "/einkauf.json", {cache:"no-store"}); const j = await r.json(); render(j); }
 const KAT = [["vorrat","Vorrat · Discounter"],["frisch","Frisch · Markt / Supermarkt"],["drogerie","Drogerie & Haushalt"]];
-function render(j){ const ul = document.getElementById("l"); ul.innerHTML = ""; if(!j.items.length){ ul.innerHTML = '<li class="leer">Noch nichts auf der Liste</li>'; return; }
+function render(j){ LAST = j; if (j.personen) window.EINKAUF_PERSONEN = j.personen; const ul = document.getElementById("l"); ul.innerHTML = ""; if(!j.items.length){ ul.innerHTML = '<li class="leer">Noch nichts auf der Liste</li>'; return; }
   for(const [k,label] of KAT){ const its = j.items.filter(it => (it.kat||"vorrat") === k); if(!its.length) continue;
-    const h = document.createElement("li"); h.className = "kat"; h.textContent = label; ul.appendChild(h);
-    for(const it of its){ const best = (it.offers||[]).filter(o=>!o.soon)[0]; const li = document.createElement("li"); li.innerHTML = `<i></i><span>${it.name}${it.q?` <small style="display:inline;opacity:.7">${it.q}</small>`:""}${best?`<small><b>${best.store}</b> ${best.price.toLocaleString("de-DE",{minimumFractionDigits:2})} €</small>`:""}</span>`;
+    const ue = (j.uebernahme||{})[k]; const h = document.createElement("li"); h.className = "kat"; h.innerHTML = `<span>${label}</span><button class="claim ${ue?"on":""}">${ue ? ue.wer + " kauft" : "übernehmen"}</button>`; h.querySelector("button").onclick = (e) => { e.stopPropagation(); claim(k); }; ul.appendChild(h);
+    for(const it of its){ const best = (it.offers||[]).filter(o=>!o.soon)[0]; const li = document.createElement("li"); li.innerHTML = `<i></i><span>${it.name}${it.q?` <small style="display:inline;opacity:.7">${it.q}</small>`:""}${best?`<small><b>${best.store}</b> ${best.price.toLocaleString("de-DE",{minimumFractionDigits:2})} €</small>`:""}</span>${it.by && it.by !== "Handy" && it.by !== "Tafel" ? `<b class="von">${it.by[0]}</b>` : ""}`;
       li.querySelector("i").onclick = async () => { li.classList.add("done"); await send("x " + it.name); }; ul.appendChild(li); } } }
-async function send(text){ const r = await fetch(base + "/einkauf/add", {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:"text="+encodeURIComponent(text)}); if(r.ok) render(await r.json()); }
-initEinkauf({ mount: document.getElementById("ek"), base, onUpdate: render });
+function wer(){ try { return localStorage.getItem("ek-wer") || ""; } catch(e){ return ""; } }
+async function send(text){ const r = await fetch(base + "/einkauf/add", {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:"text="+encodeURIComponent(text)+"&wer="+encodeURIComponent(wer())}); if(r.ok) render(await r.json()); }
+async function claim(kat){ const r = await fetch(base + "/einkauf/claim", {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:"kat="+encodeURIComponent(kat)+"&wer="+encodeURIComponent(wer()||"Handy")}); if(r.ok) render(await r.json()); }
+let LAST=null; initEinkauf({ mount: document.getElementById("ek"), base, onUpdate: render, getData: () => LAST });
 document.getElementById("clear").onclick = async e => { e.preventDefault(); if(document.getElementById("clear").dataset.ok){ await send("leer"); delete document.getElementById("clear").dataset.ok; document.getElementById("clear").textContent="leeren"; } else { document.getElementById("clear").dataset.ok="1"; document.getElementById("clear").textContent="wirklich leeren?"; setTimeout(()=>{delete document.getElementById("clear").dataset.ok; document.getElementById("clear").textContent="leeren";},3000);} };
 load(); setInterval(load, 30000);
 </script></body></html>"""
@@ -201,7 +206,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             time.sleep(1.5)                               # bremst Durchprobieren
             return self._html(LOGIN_PAGE.replace("__MSG__", "Falsche PIN."), code=401)
         sub = self._einkauf_path()
-        if sub not in ("/add", "/photo"):
+        if sub not in ("/add", "/photo", "/claim"):
             self.send_response(404); self.end_headers(); return
         n = int(self.headers.get("Content-Length") or 0)
         if n > 6_000_000:
@@ -214,17 +219,20 @@ class H(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": f"Foto-Erkennung fehlgeschlagen: {e}"})
         form = json.loads(raw) if "json" in ctype else {k: v[0] for k, v in urllib.parse.parse_qs(raw).items()}
+        who = (form.get("wer") or "").strip()[:20] or "Tafel"
+        if sub == "/claim":
+            return self._apply(None, who=who, claim=(form.get("kat") or "alle"))
         text = form.get("text", "")
         if form.get("sprache"):
             text = gesprochen_zerlegen(text)
-        self._apply(text)
+        self._apply(text, who=who)
     def _json(self, obj, code=200):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(code); self.send_header("Content-Type", "application/json; charset=utf-8"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
-    def _apply(self, text):
+    def _apply(self, text, who="Handy", claim=None):
         with LOCK:
             state = EINKAUF.load()
-            reply = EINKAUF.apply_message(state, text or "", "Handy")
+            reply = EINKAUF.claim(state, claim, who) if claim else EINKAUF.apply_message(state, text or "", who)
             EINKAUF.save(state)
             EINKAUF.export(state, os.path.join(ROOT, "einkauf.json"))
             out = json.load(open(os.path.join(ROOT, "einkauf.json"), encoding="utf-8")); out["reply"] = reply

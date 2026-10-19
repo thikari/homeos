@@ -21,12 +21,18 @@
   .ek-vorschlag button { font: inherit; font-weight: 600; padding: .55em .9em; border-radius: 999px; border: 1.5px solid var(--good, #16a35a); background: #fff; color: var(--good, #16a35a); }
   .ek-vorschlag button.weg { opacity: .35; text-decoration: line-through; }
   .ek-sprech { font-size: 1.25em; font-weight: 600; min-height: 1.5em; }
+  .ek-wer { display: flex; align-items: center; gap: .4em; flex-wrap: wrap; margin: 0 0 .6em; font-size: .85em; color: var(--muted, #5f7691); }
+  .ek-wer button { font: inherit; font-weight: 700; padding: .35em .8em; border-radius: 999px; border: 1.5px solid var(--line, #d9e3ee); background: #fff; color: var(--muted, #5f7691); cursor: pointer; }
+  .ek-wer button.on { background: var(--fg, #0f2a4a); border-color: var(--fg, #0f2a4a); color: #fff; }
+  .ek-wer .ek-share { margin-left: auto; display: inline-flex; align-items: center; gap: .4em; width: auto; height: auto; border-radius: 999px; font-size: 1em; }
+  .ek-wer .ek-share svg { width: 1.1em; height: 1.1em; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   `;
   const I = {
     type: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg>',
     mic: '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
     cam: '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
     bar: '<svg viewBox="0 0 24 24"><path d="M4 6v12M8 6v12M11 6v12M14 6v12M18 6v12M21 6v12"/></svg>',
+    share: '<svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M5 13v6h14v-6"/></svg>',
   };
 
   async function post(base, path, body, json) {
@@ -36,11 +42,28 @@
   }
   function loadScript(src) { return new Promise((res, rej) => { if (document.querySelector(`script[src="${src}"]`)) return res(); const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
 
-  window.initEinkauf = function ({ mount, base, onUpdate }) {
+  const getWer = () => { try { return localStorage.getItem("ek-wer") || ""; } catch (e) { return ""; } };
+  const setWer = (w) => { try { localStorage.setItem("ek-wer", w); } catch (e) {} };
+  window.einkaufWer = getWer;
+  window.einkaufText = function (j) {
+    const KAT = { vorrat: "Vorrat · Discounter", frisch: "Frisch · Markt", drogerie: "Drogerie & Haushalt" };
+    const lines = ["🛒 Einkaufsliste " + new Date().toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short" })];
+    for (const k of ["vorrat", "frisch", "drogerie"]) {
+      const its = (j.items || []).filter(i => (i.kat || "vorrat") === k); if (!its.length) continue;
+      const ue = (j.uebernahme || {})[k];
+      lines.push("", KAT[k].toUpperCase() + (ue ? " – " + ue.wer : ""));
+      for (const i of its) { const best = (i.offers || []).filter(o => !o.soon)[0]; lines.push("• " + i.name + (best ? ` (${best.store} ${best.price.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €)` : "")); }
+    }
+    return lines.join("\n");
+  };
+
+  window.initEinkauf = function ({ mount, base, onUpdate, getData }) {
     if (!document.getElementById("ek-css")) { const st = document.createElement("style"); st.id = "ek-css"; st.textContent = css; document.head.appendChild(st); }
     const hasSpeech = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
     const hasCam = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    const personen = (window.EINKAUF_PERSONEN || ["Tobi", "Julia"]);
     mount.innerHTML = `
+      <div class="ek-wer">Ich bin: ${personen.map(p => `<button data-w="${p}" class="${getWer() === p ? "on" : ""}">${p}</button>`).join("")}<button class="ek-share" title="Liste als Text teilen">${I.share} Teilen</button></div>
       <div class="ek-bar">
         <button data-m="type">${I.type} Tippen</button>
         <button data-m="mic" ${hasSpeech ? "" : "disabled title='Spracherkennung in diesem Browser nicht verfügbar'"}>${I.mic} Sprechen</button>
@@ -51,7 +74,15 @@
     const panel = mount.querySelector("#ek-panel");
     let aktiv = null, stopFn = null;
 
-    const add = async (text, sprache) => { const j = await post(base, "/einkauf/add", "text=" + encodeURIComponent(text) + (sprache ? "&sprache=1" : "")); onUpdate && onUpdate(j); return j.reply; };
+    const add = async (text, sprache) => { const j = await post(base, "/einkauf/add", "text=" + encodeURIComponent(text) + (sprache ? "&sprache=1" : "") + "&wer=" + encodeURIComponent(getWer())); onUpdate && onUpdate(j); return j.reply; };
+    mount.querySelectorAll(".ek-wer button[data-w]").forEach(b => b.addEventListener("click", () => { setWer(getWer() === b.dataset.w ? "" : b.dataset.w); mount.querySelectorAll(".ek-wer button[data-w]").forEach(x => x.classList.toggle("on", getWer() === x.dataset.w)); }));
+    mount.querySelector(".ek-share").addEventListener("click", async () => {
+      let j = getData ? getData() : null;
+      if (!j) { try { j = await (await fetch(base + "/einkauf.json", { cache: "no-store" })).json(); } catch (e) { return; } }
+      const text = window.einkaufText(j);
+      if (navigator.share) { try { await navigator.share({ title: "Einkaufsliste", text }); return; } catch (e) { if (e.name === "AbortError") return; } }
+      try { await navigator.clipboard.writeText(text); alert("Liste in die Zwischenablage kopiert."); } catch (e) { prompt("Liste kopieren:", text); }
+    });
     const close = () => { if (stopFn) { try { stopFn(); } catch (e) {} stopFn = null; } panel.className = "ek-panel"; panel.innerHTML = ""; aktiv = null; mount.querySelectorAll(".ek-bar button").forEach(b => b.classList.remove("aktiv")); };
     const open = (m, html) => { close(); aktiv = m; panel.innerHTML = html; panel.className = "ek-panel offen"; mount.querySelector(`[data-m="${m}"]`).classList.add("aktiv"); };
     const status = (t) => { const s = panel.querySelector(".ek-status"); if (s) s.innerHTML = t; };

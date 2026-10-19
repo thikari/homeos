@@ -11,6 +11,7 @@ import os, sys, json, re, time, urllib.request, urllib.parse, datetime as dt
 
 STATE = os.environ.get("EINKAUF_STATE", "einkauf_state.json")
 PLZ = os.environ.get("ANGEBOTE_PLZ", "68309")
+PERSONEN = [x.strip() for x in os.environ.get("EINKAUF_PERSONEN", "Tobi,Julia").split(",") if x.strip()]
 MG_HEADERS = {"x-apikey": "8Kk+pmbf7TgJ9nVj2cXeA7P5zBGv8iuutVVMRfOfvNE=", "x-clientkey": "WU/RH+PMGDi+gkZer3WbMelt6zcYHSTytNB7VpTia90=",
               "User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 LAEDEN = {"Lidl", "ALDI SÜD", "REWE", "EDEKA", "Kaufland", "Netto Marken-Discount", "PENNY", "dm", "ROSSMANN", "Scheck-in Center"}
@@ -137,7 +138,7 @@ def apply_message(state, text, who):
     low = t.lower()
     items = state["items"]
     if low in ("leer", "clear", "/leer", "/clear"):
-        state["items"] = []; return "Liste geleert."
+        state["items"] = []; state["uebernahme"] = {}; return "Liste geleert."
     if low in ("liste", "/liste", "/list", "/start"):
         return "Einkaufsliste:\n" + ("\n".join("• " + i["name"] for i in items) if items else "(leer)")
     m = re.match(r"^(x|-|✓|✔|done|weg|erledigt)\s+(.+)$", t, re.I)
@@ -200,8 +201,21 @@ def refresh_offers(state, max_age_h=6):
             print("Angebote:", i["name"], e, file=sys.stderr)
     state["offers"] = offers; state["offers_at"] = time.time()
 
+def claim(state, kat, who):
+    """Gruppe übernehmen (gleiche Person nochmal = freigeben; kat 'alle' = alle Gruppen)."""
+    ue = state.setdefault("uebernahme", {})
+    kats = ["vorrat", "frisch", "drogerie"] if kat == "alle" else [kat]
+    release = all(ue.get(k, {}).get("wer") == who for k in kats)
+    for k in kats:
+        if release:
+            ue.pop(k, None)
+        else:
+            ue[k] = {"wer": who, "at": dt.datetime.now().isoformat(timespec="minutes")}
+    return "Freigegeben." if release else f"{who} übernimmt {'alles' if kat == 'alle' else kat}."
+
 def export(state, outp):
     out = {"items": [{**i, "kat": i.get("kat") or kategorie(i["name"]), "offers": state["offers"].get(i["name"], [])} for i in state["items"]],
+           "uebernahme": state.get("uebernahme", {}), "personen": PERSONEN,
            "updated": dt.datetime.now().isoformat(timespec="minutes"), "errors": {}}
     tmp = outp + ".tmp"; json.dump(out, open(tmp, "w", encoding="utf-8"), ensure_ascii=False, indent=1); os.replace(tmp, outp)
 
