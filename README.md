@@ -100,4 +100,4 @@ Mit `TAFEL_PIN` (Railway-Variable) zeigt die Startseite `https://<domain>/` eine
 
 ## Dauerhafter Speicher (wichtig)
 
-Einkaufsliste und FRANKLIN-Mobil-Token liegen in `DATA_DIR`. Auf Railway: im Service **Volume** anlegen mit Mount-Pfad `/app/data` – wird automatisch erkannt (Log: „Datenordner: /app/data (persistent)"). Ohne Volume ist die Liste nach jedem Deploy leer.
+Einkaufsliste: entweder `MONGODB_URI` setzen (Railway-MongoDB oder Atlas; Collection `einkauf`, Dokument `liste`) – oder Datei in `DATA_DIR`. Auf Railway: im Service **Volume** anlegen mit Mount-Pfad `/app/data` – wird automatisch erkannt (Log: „Datenordner: /app/data (persistent)"). Ohne Volume ist die Liste nach jedem Deploy leer.

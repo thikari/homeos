@@ -16,13 +16,39 @@ MG_HEADERS = {"x-apikey": "8Kk+pmbf7TgJ9nVj2cXeA7P5zBGv8iuutVVMRfOfvNE=", "x-cli
               "User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 LAEDEN = {"Lidl", "ALDI SÜD", "REWE", "EDEKA", "Kaufland", "Netto Marken-Discount", "PENNY", "dm", "ROSSMANN", "Scheck-in Center"}
 
+MONGO = os.environ.get("MONGODB_URI", "").strip()           # gesetzt → Liste in MongoDB (DB aus der URI oder "homeos", Collection "einkauf")
+_col = None
+def _mongo():
+    global _col
+    if _col is None:
+        from pymongo import MongoClient
+        c = MongoClient(MONGO, serverSelectionTimeoutMS=8000)
+        db = c.get_default_database(default="homeos")
+        _col = db["einkauf"]
+    return _col
+
+LEER = {"items": [], "offset": 0, "offers": {}, "offers_at": None, "uebernahme": {}}
+
 def load():
+    if MONGO:
+        try:
+            doc = _mongo().find_one({"_id": "liste"}) or {}
+            doc.pop("_id", None)
+            return {**LEER, **doc} if doc else dict(LEER)
+        except Exception as e:
+            print("MongoDB load:", e, file=sys.stderr)
     try:
         return json.load(open(STATE, encoding="utf-8"))
     except Exception:
-        return {"items": [], "offset": 0, "offers": {}, "offers_at": None}
+        return dict(LEER)
 
 def save(s):
+    if MONGO:
+        try:
+            _mongo().replace_one({"_id": "liste"}, {"_id": "liste", **s}, upsert=True)
+            return
+        except Exception as e:
+            print("MongoDB save:", e, file=sys.stderr)
     tmp = STATE + ".tmp"; json.dump(s, open(tmp, "w", encoding="utf-8"), ensure_ascii=False, indent=1); os.replace(tmp, STATE)
 
 # Kategorien: Vorrat (Discounter), Frisch (Markt/Supermarkt), Drogerie & Haushalt. Treffer über Wortanfänge.

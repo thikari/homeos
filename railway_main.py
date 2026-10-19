@@ -14,7 +14,7 @@ INTERVAL = int(os.environ.get("FETCH_INTERVAL", "300"))
 # Dauerhafter Speicher: Railway-Volume (Standard-Mount /app/data) oder DATA_DIR. Ohne Volume geht die Einkaufsliste bei jedem Deploy verloren.
 DATA_DIR = os.environ.get("DATA_DIR") or ("/app/data" if os.path.isdir("/app/data") else HERE)
 os.environ.setdefault("EINKAUF_STATE", os.path.join(DATA_DIR, "einkauf_state.json"))
-print("Datenordner:", DATA_DIR, "(persistent)" if DATA_DIR != HERE else "(NICHT persistent – Volume unter /app/data anlegen)", flush=True)
+print("Speicher:", "MongoDB (MONGODB_URI)" if os.environ.get("MONGODB_URI") else f"{DATA_DIR} " + ("(persistent)" if DATA_DIR != HERE else "(NICHT persistent – Volume unter /app/data anlegen oder MONGODB_URI setzen)"), flush=True)
 
 def fetch_loop():
     while True:
