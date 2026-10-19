@@ -25,13 +25,21 @@ h1{font-size:1.1rem;letter-spacing:.1em;text-transform:uppercase;color:var(--mut
 form{display:flex;gap:.5rem;margin-bottom:1rem}
 input{flex:1;font:inherit;font-size:1.1rem;padding:.75rem .9rem;border:1.5px solid var(--line);border-radius:12px;min-width:0}
 ul{list-style:none;margin:0;padding:0}
-li{display:flex;align-items:center;gap:.8rem;padding:.8rem 0;border-bottom:1px solid var(--line);font-size:1.15rem;font-weight:600}
+li{position:relative;overflow:hidden;padding:0;border-bottom:1px solid var(--line);font-size:1.15rem;font-weight:600}
+li .row2{display:flex;align-items:center;gap:.8rem;padding:.8rem 0;background:#fff;position:relative}
+li .sw{position:absolute;inset:0;display:flex;justify-content:space-between;align-items:center;font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;padding:0 .9rem}
+li .sw .sl{background:var(--muted)} li .sw .sr{background:var(--good)} li .sw span{padding:.4rem .7rem;border-radius:999px;opacity:0;transition:opacity .15s}
+li.swl .sl, li.swr .sr{opacity:1}
+li .kauft{font-size:.72rem;font-weight:700;letter-spacing:.04em;padding:.2rem .55rem;border-radius:999px;background:var(--good);color:#fff;margin-left:auto}
+li .kauft + .von{margin-left:.4rem}
+li.mine:not(.me) .row2{opacity:.55}
+.filter{display:flex;gap:.4rem;margin:0 0 .4rem}.filter button{font:inherit;font-weight:700;font-size:.85rem;padding:.4rem .9rem;border-radius:999px;border:1.5px solid var(--line);background:#fff;color:var(--muted)}.filter button.on{background:var(--fg);border-color:var(--fg);color:#fff}
 li i{width:1.3rem;height:1.3rem;border:2px solid var(--line);border-radius:6px;flex:none;position:relative}
 li i::after{content:"";position:absolute;inset:-.6rem}
 li small{display:block;font-size:.8rem;font-weight:500;color:var(--muted)}
 li small b{color:var(--good)}
-li.done{opacity:.35;text-decoration:line-through}
-li.kat{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bad);font-weight:700;border:0;padding:1.1rem 0 .2rem;justify-content:space-between}
+li.done .row2{opacity:.35;text-decoration:line-through}
+li.kat{display:flex;align-items:center;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--bad);font-weight:700;border:0;padding:1.1rem 0 .2rem;justify-content:space-between;overflow:visible}
 li.kat .claim{font:inherit;font-size:.7rem;letter-spacing:.06em;padding:.3rem .7rem;border-radius:999px;border:1.5px solid var(--line);background:#fff;color:var(--muted)}
 li.kat .claim.on{background:var(--good);border-color:var(--good);color:#fff}
 li .von{margin-left:auto;font-size:.75rem;width:1.5rem;height:1.5rem;border-radius:50%;background:var(--soft);color:var(--muted);display:grid;place-items:center;flex:none}
@@ -42,23 +50,38 @@ li .von{margin-left:auto;font-size:.75rem;width:1.5rem;height:1.5rem;border-radi
 </style></head><body>
 <div class="row"><h1>Einkaufsliste</h1><a href="#" id="clear">leeren</a></div>
 <div id="ek"></div>
+<div id="filter" class="filter" hidden><button data-f="alle" class="on">Alle</button><button data-f="meine">Meine</button></div>
 <ul id="l"><li class="leer">Lade …</li></ul>
-<p class="hint">Kästchen antippen hakt ab. Tippen · Sprechen · Foto · Barcode – alles landet auf der Liste, die auch auf der Tafel steht.</p>
+<p class="hint">Nach rechts wischen = ich kaufe das · nach links oder Kästchen = erledigt. Tippen · Sprechen · Foto · Barcode – alles landet auf der Liste, die auch auf der Tafel steht.</p>
 <script src="../einkauf.js"></script>
 <script>
 const base = location.pathname.replace(/\/einkauf\/?$/, "");
 async function load(){ const r = await fetch(base + "/einkauf.json", {cache:"no-store"}); const j = await r.json(); render(j); }
 const KAT = [["vorrat","Vorrat · Discounter"],["frisch","Frisch · Markt / Supermarkt"],["drogerie","Drogerie & Haushalt"]];
-function render(j){ LAST = j; if (j.personen) window.EINKAUF_PERSONEN = j.personen; if (window.einkaufClaimState) einkaufClaimState(j); const ul = document.getElementById("l"); ul.innerHTML = ""; if(!j.items.length){ ul.innerHTML = '<li class="leer">Noch nichts auf der Liste</li>'; return; }
-  for(const [k,label] of KAT){ const its = j.items.filter(it => (it.kat||"vorrat") === k); if(!its.length) continue;
-    const ue = (j.uebernahme||{})[k]; const h = document.createElement("li"); h.className = "kat"; h.innerHTML = `<span>${label}</span><button class="claim ${ue?"on":""}">${ue ? ue.wer + " kauft" : "übernehmen"}</button>`; h.querySelector("button").onclick = (e) => { e.stopPropagation(); claim(k); }; ul.appendChild(h);
-    for(const it of its){ const best = (it.offers||[]).filter(o=>!o.soon)[0]; const li = document.createElement("li"); li.innerHTML = `<i></i><span>${it.name}${it.q?` <small style="display:inline;opacity:.7">${it.q}</small>`:""}${best?`<small><b>${best.store}</b> ${best.price.toLocaleString("de-DE",{minimumFractionDigits:2})} €</small>`:""}</span>${it.by && it.by !== "Handy" && it.by !== "Tafel" ? `<b class="von">${it.by[0]}</b>` : ""}`;
-      li.querySelector("i").onclick = async () => { li.classList.add("done"); await send("x " + it.name); }; ul.appendChild(li); } } }
+let FILTER = "alle";
+function render(j){ LAST = j; if (j.personen) window.EINKAUF_PERSONEN = j.personen; if (window.einkaufClaimState) einkaufClaimState(j); const ul = document.getElementById("l"); ul.innerHTML = "";
+  const me = wer(); const f = document.getElementById("filter"); f.hidden = !me; f.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.f === FILTER)); f.querySelector('[data-f="meine"]').textContent = (me||"Meine") + " (" + j.items.filter(i => i.wer_kauft === me).length + ")";
+  const items = FILTER === "meine" && me ? j.items.filter(i => i.wer_kauft === me) : j.items;
+  if(!items.length){ ul.innerHTML = '<li class="leer">' + (FILTER === "meine" ? "Nichts übernommen – nach rechts wischen, um Artikel zu nehmen." : "Noch nichts auf der Liste") + '</li>'; return; }
+  for(const [k,label] of KAT){ const its = items.filter(it => (it.kat||"vorrat") === k); if(!its.length) continue;
+    const ue = (j.uebernahme||{})[k]; const h = document.createElement("li"); h.className = "kat"; h.innerHTML = `<span>${label}</span><button class="claim ${ue?"on":""}">${ue ? ue.wer + " kauft" : "alle nehmen"}</button>`; h.querySelector("button").onclick = (e) => { e.stopPropagation(); claim(k); }; ul.appendChild(h);
+    for(const it of its){ const best = (it.offers||[]).filter(o=>!o.soon)[0]; const li = document.createElement("li"); li.className = it.wer_kauft ? "mine" + (it.wer_kauft === me ? " me" : "") : "";
+      li.innerHTML = `<div class="sw"><span class="sl">✓ erledigt</span><span class="sr">${me ? me + " kauft" : "nehmen"}</span></div><div class="row2"><i></i><span>${it.name}${it.q?` <small style="display:inline;opacity:.7">${it.q}</small>`:""}${best?`<small><b>${best.store}</b> ${best.price.toLocaleString("de-DE",{minimumFractionDigits:2})} €</small>`:""}</span>${it.wer_kauft ? `<b class="kauft">${it.wer_kauft}</b>` : ""}${it.by && it.by !== "Handy" && it.by !== "Tafel" ? `<b class="von">${it.by[0]}</b>` : ""}</div>`;
+      li.querySelector("i").onclick = async () => { li.classList.add("done"); await send("x " + it.name); };
+      swipe(li, async () => { li.classList.add("done"); await send("x " + it.name); }, async () => { if(!me){ alert("Erst oben auf deinen Namen tippen."); return; } await nehmen(it.name); });
+      ul.appendChild(li); } } }
+function swipe(li, left, right){ let x0=null, dx=0; const row = li.querySelector(".row2");
+  li.addEventListener("touchstart", e => { x0 = e.touches[0].clientX; dx = 0; row.style.transition = "none"; }, {passive:true});
+  li.addEventListener("touchmove", e => { if(x0===null) return; dx = e.touches[0].clientX - x0; if (Math.abs(dx) > 8) row.style.transform = `translateX(${Math.max(-110, Math.min(110, dx))}px)`; li.classList.toggle("swl", dx < -30); li.classList.toggle("swr", dx > 30); }, {passive:true});
+  li.addEventListener("touchend", () => { row.style.transition = "transform .18s"; row.style.transform = ""; const d = dx; x0 = null; li.classList.remove("swl","swr"); if (d < -70) left(); else if (d > 70) right(); });
+}
+async function nehmen(name){ const r = await fetch(base + "/einkauf/nehmen", {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:"name="+encodeURIComponent(name)+"&wer="+encodeURIComponent(wer())}); if(r.ok) render(await r.json()); }
 function wer(){ try { return localStorage.getItem("ek-wer") || ""; } catch(e){ return ""; } }
 async function send(text){ const r = await fetch(base + "/einkauf/add", {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:"text="+encodeURIComponent(text)+"&wer="+encodeURIComponent(wer())}); if(r.ok) render(await r.json()); }
 async function claim(kat){ const r = await fetch(base + "/einkauf/claim", {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:"kat="+encodeURIComponent(kat)+"&wer="+encodeURIComponent(wer()||"Handy")}); if(r.ok) render(await r.json()); }
 let LAST=null; initEinkauf({ mount: document.getElementById("ek"), base, onUpdate: render, getData: () => LAST });
 document.getElementById("clear").onclick = async e => { e.preventDefault(); if(document.getElementById("clear").dataset.ok){ await send("leer"); delete document.getElementById("clear").dataset.ok; document.getElementById("clear").textContent="leeren"; } else { document.getElementById("clear").dataset.ok="1"; document.getElementById("clear").textContent="wirklich leeren?"; setTimeout(()=>{delete document.getElementById("clear").dataset.ok; document.getElementById("clear").textContent="leeren";},3000);} };
+document.querySelectorAll("#filter button").forEach(b => b.onclick = () => { FILTER = b.dataset.f; if (LAST) render(LAST); });
 load(); setInterval(load, 30000);
 </script></body></html>"""
 
@@ -217,7 +240,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             time.sleep(1.5)                               # bremst Durchprobieren
             return self._html(LOGIN_PAGE.replace("__MSG__", "Falsche PIN."), code=401)
         sub = self._einkauf_path()
-        if sub not in ("/add", "/photo", "/claim"):
+        if sub not in ("/add", "/photo", "/claim", "/nehmen"):
             self.send_response(404); self.end_headers(); return
         n = int(self.headers.get("Content-Length") or 0)
         if n > 6_000_000:
@@ -233,6 +256,8 @@ class H(http.server.SimpleHTTPRequestHandler):
         who = (form.get("wer") or "").strip()[:20] or "Tafel"
         if sub == "/claim":
             return self._apply(None, who=who, claim=(form.get("kat") or "alle"))
+        if sub == "/nehmen":
+            return self._apply(None, who=who, nehmen=(form.get("name") or ""))
         text = form.get("text", "")
         if form.get("sprache"):
             text = gesprochen_zerlegen(text)
@@ -240,10 +265,10 @@ class H(http.server.SimpleHTTPRequestHandler):
     def _json(self, obj, code=200):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(code); self.send_header("Content-Type", "application/json; charset=utf-8"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
-    def _apply(self, text, who="Handy", claim=None):
+    def _apply(self, text, who="Handy", claim=None, nehmen=None):
         with LOCK:
             state = EINKAUF.load()
-            reply = EINKAUF.claim(state, claim, who) if claim else EINKAUF.apply_message(state, text or "", who)
+            reply = EINKAUF.claim(state, claim, who) if claim else (EINKAUF.nehmen(state, nehmen, who) if nehmen else EINKAUF.apply_message(state, text or "", who))
             EINKAUF.save(state)
             EINKAUF.export(state, os.path.join(ROOT, "einkauf.json"))
             out = json.load(open(os.path.join(ROOT, "einkauf.json"), encoding="utf-8")); out["reply"] = reply

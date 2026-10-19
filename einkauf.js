@@ -57,7 +57,7 @@
       const its = (j.items || []).filter(i => (i.kat || "vorrat") === k); if (!its.length) continue;
       const ue = (j.uebernahme || {})[k];
       lines.push("", KAT[k].toUpperCase() + (ue ? " – " + ue.wer : ""));
-      for (const i of its) { const best = (i.offers || []).filter(o => !o.soon)[0]; lines.push("• " + i.name + (best ? ` (${best.store} ${best.price.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €)` : "")); }
+      for (const i of its) { const best = (i.offers || []).filter(o => !o.soon)[0]; lines.push("• " + i.name + (i.wer_kauft && !ue ? ` – ${i.wer_kauft}` : "") + (best ? ` (${best.store} ${best.price.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €)` : "")); }
     }
     return lines.join("\n");
   };
@@ -68,7 +68,7 @@
     const hasCam = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
     const personen = (window.EINKAUF_PERSONEN || ["Tobi", "Julia"]);
     mount.innerHTML = `
-      <div class="ek-wer">Ich bin: ${personen.map(p => `<button data-w="${p}" class="${getWer() === p ? "on" : ""}">${p}</button>`).join("")}<span class="ek-r"><button class="ek-claim" title="Ich gehe einkaufen – alle Gruppen übernehmen">${I.cart} <span>Einkauf übernehmen</span></button><button class="ek-share" title="Liste als Text teilen">${I.share} Teilen</button></span></div>
+      <div class="ek-wer">Ich bin: ${personen.map(p => `<button data-w="${p}" class="${getWer() === p ? "on" : ""}">${p}</button>`).join("")}<span class="ek-r"><button class="ek-claim" title="Ich gehe einkaufen – alle Gruppen übernehmen">${I.cart} <span>Alles nehmen</span></button><button class="ek-share" title="Liste als Text teilen">${I.share} Teilen</button></span></div>
       <div class="ek-bar">
         <button data-m="type">${I.type} Tippen</button>
         <button data-m="mic" ${hasSpeech ? "" : "disabled title='Spracherkennung in diesem Browser nicht verfügbar'"}>${I.mic} Sprechen</button>
@@ -82,7 +82,7 @@
     const add = async (text, sprache) => { const j = await post(base, "/einkauf/add", "text=" + encodeURIComponent(text) + (sprache ? "&sprache=1" : "") + "&wer=" + encodeURIComponent(getWer())); onUpdate && onUpdate(j); return j.reply; };
     mount.querySelectorAll(".ek-wer button[data-w]").forEach(b => b.addEventListener("click", () => { setWer(getWer() === b.dataset.w ? "" : b.dataset.w); mount.querySelectorAll(".ek-wer button[data-w]").forEach(x => x.classList.toggle("on", getWer() === x.dataset.w)); }));
     const claimBtn = mount.querySelector(".ek-claim");
-    window.einkaufClaimState = (j) => { const ue = (j && j.uebernahme) || {}; const wer = ["vorrat", "frisch", "drogerie"].map(k => ue[k] && ue[k].wer).filter(Boolean); const alle = wer.length === 3 && new Set(wer).size === 1; claimBtn.classList.toggle("on", alle); claimBtn.querySelector("span").textContent = alle ? wer[0] + " kauft ein" : "Einkauf übernehmen"; };
+    window.einkaufClaimState = (j) => { const ue = (j && j.uebernahme) || {}; const wer = ["vorrat", "frisch", "drogerie"].map(k => ue[k] && ue[k].wer).filter(Boolean); const alle = wer.length === 3 && new Set(wer).size === 1; claimBtn.classList.toggle("on", alle); claimBtn.querySelector("span").textContent = alle ? wer[0] + " kauft ein" : "Alles nehmen"; };
     claimBtn.addEventListener("click", async () => {
       const w = getWer(); if (!w) { alert("Erst oben auf deinen Namen tippen."); return; }
       const j = await post(base, "/einkauf/claim", "kat=alle&wer=" + encodeURIComponent(w)); onUpdate && onUpdate(j);

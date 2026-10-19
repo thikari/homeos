@@ -228,22 +228,42 @@ def refresh_offers(state, max_age_h=6):
             print("Angebote:", i["name"], e, file=sys.stderr)
     state["offers"] = offers; state["offers_at"] = time.time()
 
+def nehmen(state, name, who):
+    """Einzelnen Artikel übernehmen (gleiche Person nochmal = freigeben)."""
+    for i in state["items"]:
+        if i["name"].lower() == (name or "").lower():
+            if i.get("wer_kauft") == who:
+                i.pop("wer_kauft", None); SPEICHER.log_einkauf("freigegeben", who, i["name"], i.get("kat")); return f"{i['name']} freigegeben."
+            i["wer_kauft"] = who; SPEICHER.log_einkauf("uebernommen", who, i["name"], i.get("kat")); return f"{who} kauft {i['name']}."
+    return "Nicht gefunden."
+
 def claim(state, kat, who):
-    """Gruppe übernehmen (gleiche Person nochmal = freigeben; kat 'alle' = alle Gruppen)."""
-    ue = state.setdefault("uebernahme", {})
+    """Gruppe (oder 'alle') übernehmen = alle Artikel darin auf who setzen; sind schon alle bei who → freigeben."""
     kats = ["vorrat", "frisch", "drogerie"] if kat == "alle" else [kat]
-    release = all(ue.get(k, {}).get("wer") == who for k in kats)
-    for k in kats:
+    its = [i for i in state["items"] if (i.get("kat") or "vorrat") in kats]
+    release = bool(its) and all(i.get("wer_kauft") == who for i in its)
+    for i in its:
         if release:
-            ue.pop(k, None)
+            i.pop("wer_kauft", None)
         else:
-            ue[k] = {"wer": who, "at": dt.datetime.now().isoformat(timespec="minutes")}
+            i["wer_kauft"] = who
+    state["uebernahme"] = uebernahme(state)
     SPEICHER.log_einkauf("freigegeben" if release else "uebernommen", who, kat=kat)
     return "Freigegeben." if release else f"{who} übernimmt {'alles' if kat == 'alle' else kat}."
 
+def uebernahme(state):
+    """Abgeleitet: Gruppe gilt als übernommen, wenn alle Artikel darin dieselbe Person haben."""
+    out = {}
+    for k in ("vorrat", "frisch", "drogerie"):
+        its = [i for i in state["items"] if (i.get("kat") or "vorrat") == k]
+        wer = {i.get("wer_kauft") for i in its}
+        if its and len(wer) == 1 and None not in wer:
+            out[k] = {"wer": wer.pop()}
+    return out
+
 def export(state, outp):
     out = {"items": [{**i, "kat": i.get("kat") or kategorie(i["name"]), "offers": state["offers"].get(i["name"], [])} for i in state["items"]],
-           "uebernahme": state.get("uebernahme", {}), "personen": PERSONEN,
+           "uebernahme": uebernahme(state), "personen": PERSONEN,
            "updated": dt.datetime.now().isoformat(timespec="minutes"), "errors": {}}
     tmp = outp + ".tmp"; json.dump(out, open(tmp, "w", encoding="utf-8"), ensure_ascii=False, indent=1); os.replace(tmp, outp)
 
