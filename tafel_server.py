@@ -202,7 +202,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             body = PHONE_PAGE.encode("utf-8")
             self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body); return
         if sub == "/add" and "text=" in (self.path.split("?", 1) + [""])[1]:
-            return self._apply(urllib.parse.parse_qs(self.path.split("?", 1)[1]).get("text", [""])[0])
+            q = urllib.parse.parse_qs(self.path.split("?", 1)[1])
+            return self._apply(q.get("text", [""])[0], who=(q.get("wer", [""])[0].strip()[:20] or "Handy"))
         if sub and sub.startswith("/ean/"):
             return self._json(ean_lookup(sub[5:]))
         super().do_GET()
