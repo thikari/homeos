@@ -24,7 +24,11 @@
   .ek-wer { display: flex; align-items: center; gap: .4em; flex-wrap: wrap; margin: 0 0 .6em; font-size: .85em; color: var(--muted, #5f7691); }
   .ek-wer button { font: inherit; font-weight: 700; padding: .35em .8em; border-radius: 999px; border: 1.5px solid var(--line, #d9e3ee); background: #fff; color: var(--muted, #5f7691); cursor: pointer; }
   .ek-wer button.on { background: var(--fg, #0f2a4a); border-color: var(--fg, #0f2a4a); color: #fff; }
-  .ek-wer .ek-share { margin-left: auto; display: inline-flex; align-items: center; gap: .4em; width: auto; height: auto; border-radius: 999px; font-size: 1em; }
+  .ek-wer .ek-r { margin-left: auto; display: flex; gap: .4em; }
+  .ek-wer .ek-claim { display: inline-flex; align-items: center; gap: .4em; border-radius: 999px; font-size: 1em; }
+  .ek-wer .ek-claim svg { width: 1.1em; height: 1.1em; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .ek-wer .ek-claim.on { background: var(--good, #16a35a); border-color: var(--good, #16a35a); color: #fff; }
+  .ek-wer .ek-share { margin-left: 0; display: inline-flex; align-items: center; gap: .4em; width: auto; height: auto; border-radius: 999px; font-size: 1em; }
   .ek-wer .ek-share svg { width: 1.1em; height: 1.1em; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   `;
   const I = {
@@ -32,6 +36,7 @@
     mic: '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
     cam: '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
     bar: '<svg viewBox="0 0 24 24"><path d="M4 6v12M8 6v12M11 6v12M14 6v12M18 6v12M21 6v12"/></svg>',
+    cart: '<svg viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h11.2L21 8H7"/><circle cx="9" cy="19" r="1.3"/><circle cx="17" cy="19" r="1.3"/></svg>',
     share: '<svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M5 13v6h14v-6"/></svg>',
   };
 
@@ -63,7 +68,7 @@
     const hasCam = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
     const personen = (window.EINKAUF_PERSONEN || ["Tobi", "Julia"]);
     mount.innerHTML = `
-      <div class="ek-wer">Ich bin: ${personen.map(p => `<button data-w="${p}" class="${getWer() === p ? "on" : ""}">${p}</button>`).join("")}<button class="ek-share" title="Liste als Text teilen">${I.share} Teilen</button></div>
+      <div class="ek-wer">Ich bin: ${personen.map(p => `<button data-w="${p}" class="${getWer() === p ? "on" : ""}">${p}</button>`).join("")}<span class="ek-r"><button class="ek-claim" title="Ich gehe einkaufen – alle Gruppen übernehmen">${I.cart} <span>Einkauf übernehmen</span></button><button class="ek-share" title="Liste als Text teilen">${I.share} Teilen</button></span></div>
       <div class="ek-bar">
         <button data-m="type">${I.type} Tippen</button>
         <button data-m="mic" ${hasSpeech ? "" : "disabled title='Spracherkennung in diesem Browser nicht verfügbar'"}>${I.mic} Sprechen</button>
@@ -76,6 +81,12 @@
 
     const add = async (text, sprache) => { const j = await post(base, "/einkauf/add", "text=" + encodeURIComponent(text) + (sprache ? "&sprache=1" : "") + "&wer=" + encodeURIComponent(getWer())); onUpdate && onUpdate(j); return j.reply; };
     mount.querySelectorAll(".ek-wer button[data-w]").forEach(b => b.addEventListener("click", () => { setWer(getWer() === b.dataset.w ? "" : b.dataset.w); mount.querySelectorAll(".ek-wer button[data-w]").forEach(x => x.classList.toggle("on", getWer() === x.dataset.w)); }));
+    const claimBtn = mount.querySelector(".ek-claim");
+    window.einkaufClaimState = (j) => { const ue = (j && j.uebernahme) || {}; const wer = ["vorrat", "frisch", "drogerie"].map(k => ue[k] && ue[k].wer).filter(Boolean); const alle = wer.length === 3 && new Set(wer).size === 1; claimBtn.classList.toggle("on", alle); claimBtn.querySelector("span").textContent = alle ? wer[0] + " kauft ein" : "Einkauf übernehmen"; };
+    claimBtn.addEventListener("click", async () => {
+      const w = getWer(); if (!w) { alert("Erst oben auf deinen Namen tippen."); return; }
+      const j = await post(base, "/einkauf/claim", "kat=alle&wer=" + encodeURIComponent(w)); onUpdate && onUpdate(j);
+    });
     mount.querySelector(".ek-share").addEventListener("click", async () => {
       let j = getData ? getData() : null;
       if (!j) { try { j = await (await fetch(base + "/einkauf.json", { cache: "no-store" })).json(); } catch (e) { return; } }

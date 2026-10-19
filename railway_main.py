@@ -11,6 +11,10 @@ shutil.copy(os.path.join(HERE, "einkauf.js"), os.path.join(WWW, "einkauf.js"))
 for f in os.listdir(os.path.join(HERE, "static")):
     shutil.copy(os.path.join(HERE, "static", f), os.path.join(WWW, f))
 INTERVAL = int(os.environ.get("FETCH_INTERVAL", "300"))
+# Dauerhafter Speicher: Railway-Volume (Standard-Mount /app/data) oder DATA_DIR. Ohne Volume geht die Einkaufsliste bei jedem Deploy verloren.
+DATA_DIR = os.environ.get("DATA_DIR") or ("/app/data" if os.path.isdir("/app/data") else HERE)
+os.environ.setdefault("EINKAUF_STATE", os.path.join(DATA_DIR, "einkauf_state.json"))
+print("Datenordner:", DATA_DIR, "(persistent)" if DATA_DIR != HERE else "(NICHT persistent – Volume unter /app/data anlegen)", flush=True)
 
 def fetch_loop():
     while True:
@@ -32,7 +36,7 @@ def einkauf_loop():
     while True:
         try:
             r = subprocess.run([sys.executable, os.path.join(HERE, "einkauf.py"), os.path.join(WWW, "einkauf.json.tmp")], capture_output=True, text=True, timeout=90,
-                               env={**os.environ, "EINKAUF_STATE": os.path.join(HERE, "einkauf_state.json")})
+                               env=os.environ)
             if r.returncode == 0:
                 os.replace(os.path.join(WWW, "einkauf.json.tmp"), os.path.join(WWW, "einkauf.json"))
             else:
@@ -42,7 +46,7 @@ def einkauf_loop():
         time.sleep(int(os.environ.get("EINKAUF_INTERVAL", "900")))
 
 def mobil_loop():
-    state_dir = os.path.dirname(os.environ.get("EINKAUF_STATE", os.path.join(HERE, "einkauf_state.json")))
+    state_dir = os.path.dirname(os.environ["EINKAUF_STATE"])
     while True:
         try:
             r = subprocess.run([sys.executable, os.path.join(HERE, "mobil.py"), os.path.join(WWW, "mobil.json")], capture_output=True, text=True, timeout=120,
@@ -57,5 +61,4 @@ threading.Thread(target=einkauf_loop, daemon=True).start()
 threading.Thread(target=mobil_loop, daemon=True).start()
 os.environ.setdefault("TAFEL_PORT", os.environ.get("PORT", "8787"))
 os.environ["TAFEL_ROOT"] = WWW
-os.environ.setdefault("EINKAUF_STATE", os.path.join(HERE, "einkauf_state.json"))
 exec(open(os.path.join(HERE, "tafel_server.py")).read())

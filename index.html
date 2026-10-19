@@ -206,6 +206,7 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
 .kosten .kz { display: grid; grid-template-columns: 4.2em 1fr 5.5em 5em; gap: .7em; align-items: center; padding: .25em 0; font-size: .95em; }
 .kosten .km { font-weight: 600; } .kosten .kb { height: .55em; background: var(--soft); border-radius: 999px; overflow: hidden; } .kosten .kb i { display: block; height: 100%; background: var(--bad); border-radius: 999px; }
 .kosten .ke { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; } .kosten .kf { color: var(--muted); font-size: .85em; }
+.kauft { font-weight: 800; font-size: 1.3em; color: var(--good); text-align: right; margin-bottom: .2em; }
 /* Einkauf */
 .einkauf { display: grid; grid-template-columns: 1.1fr 1fr; gap: 2.4em; min-height: calc(100vh - 8em); }
 .einkauf h2 { margin: 0 0 .9em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
@@ -409,7 +410,7 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
 <div class="tafel seite-einkauf">
   <header>
     <div><div class="clock" id="clock2">--:--</div><div class="date" id="date2"></div></div>
-    <div class="eyebrow" id="einkauf-stand"></div>
+    <div><div class="kauft" id="einkauf-wer" hidden></div><div class="eyebrow" id="einkauf-stand"></div></div>
   </header>
   <section class="einkauf">
     <div>
@@ -932,6 +933,9 @@ let EINKAUF = { items: [] };
 const eur = v => v == null ? "–" : v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 function renderEinkauf(e) {
   const items = e.items || [];
+  if (window.einkaufClaimState) einkaufClaimState(e);
+  { const ue = e.uebernahme || {}; const wer = ["vorrat", "frisch", "drogerie"].map(k => ue[k] && ue[k].wer).filter(Boolean); const b = document.getElementById("einkauf-wer");
+    b.hidden = !wer.length; b.textContent = wer.length === 3 && new Set(wer).size === 1 ? `${wer[0]} kauft ein` : [...new Set(wer)].join(" & ") + " kaufen ein"; }
   document.getElementById("einkauf-n").textContent = items.length ? items.length + " Artikel" : "";
   const KAT = [["vorrat", "Vorrat · Discounter"], ["frisch", "Frisch · Markt / Supermarkt"], ["drogerie", "Drogerie & Haushalt"]];
   const gr = document.getElementById("gruppen"); gr.innerHTML = "";

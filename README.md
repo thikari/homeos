@@ -97,3 +97,7 @@ Kamera und Mikrofon verlangen HTTPS (Railway hat das) und einmalig die Freigabe 
 ## Zugang mit PIN
 
 Mit `TAFEL_PIN` (Railway-Variable) zeigt die Startseite `https://<domain>/` eine PIN-Abfrage. Nach richtiger Eingabe setzt der Server ein Cookie für ein Jahr; danach funktionieren `/`, `/einkauf/` und alle Daten ohne Token im Pfad. `/logout` löscht das Cookie. Der geheime Pfad `/<TAFEL_TOKEN>/…` funktioniert parallel weiter (für den Rahmen im Kiosk-Modus). Ohne `TAFEL_PIN` gibt es nur den Token-Pfad. Falsche PINs werden mit 1,5 s Verzögerung beantwortet; Token oder PIN ändern macht alle Cookies ungültig.
+
+## Dauerhafter Speicher (wichtig)
+
+Einkaufsliste und FRANKLIN-Mobil-Token liegen in `DATA_DIR`. Auf Railway: im Service **Volume** anlegen mit Mount-Pfad `/app/data` – wird automatisch erkannt (Log: „Datenordner: /app/data (persistent)"). Ohne Volume ist die Liste nach jedem Deploy leer.
