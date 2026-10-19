@@ -185,6 +185,16 @@ class H(http.server.SimpleHTTPRequestHandler):
             if PIN and path in ("/", "/index.html", "/einkauf", "/einkauf/", "/login"):
                 return self._html(LOGIN_PAGE.replace("__MSG__", ""))
             self.send_response(404); self.end_headers(); return
+        if rel == "/status":
+            st = {"speicher": "datei", "pfad": os.environ.get("EINKAUF_STATE"), "mongodb_uri_gesetzt": bool(os.environ.get("MONGODB_URI")), "mongodb": None,
+                  "pin": bool(PIN), "franklin_login": bool(os.environ.get("FRANKLIN_LOGIN")), "anthropic_key": bool(os.environ.get("ANTHROPIC_API_KEY"))}
+            if os.environ.get("MONGODB_URI"):
+                try:
+                    d = EINKAUF.SPEICHER.db(); d.command("ping")
+                    st["speicher"] = "mongodb"; st["mongodb"] = {"db": d.name, "collections": {c: d[c].estimated_document_count() for c in sorted(d.list_collection_names())}}
+                except Exception as e:
+                    st["mongodb"] = f"FEHLER: {type(e).__name__}: {str(e)[:200]}"
+            return self._json(st)
         if rel == "/logout":
             return self._html("<meta http-equiv=refresh content='0;url=/'>Abgemeldet.", extra=[("Set-Cookie", "tafel=; Max-Age=0; Path=/")])
         sub = self._einkauf_path()
