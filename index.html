@@ -113,6 +113,12 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .heute .hv { font-weight: 800; font-size: 1.6em; letter-spacing: -.02em; line-height: 1; white-space: nowrap; }
 .heute .hv small { font-size: .55em; font-weight: 500; color: var(--muted); letter-spacing: 0; }
 .heute .hs { font-size: .82em; color: var(--muted); }
+.heute .tb { display: grid; grid-template-columns: auto 1fr auto; gap: .6em; align-items: center; font-size: .82em; margin-top: .1em; }
+.heute .tb .bar { height: .5em; background: var(--soft); border-radius: 999px; overflow: hidden; position: relative; }
+.heute .tb .bar i { display: block; height: 100%; border-radius: 999px; background: var(--good); }
+.heute .tb .bar i[data-s="ok"] { background: var(--warn); } .heute .tb .bar i[data-s="bad"] { background: var(--bad); }
+.heute .tb .bar::after { content: ""; position: absolute; top: -2px; bottom: -2px; left: var(--soll, 100%); border-left: 1.5px dashed var(--fg); opacity: .6; }
+.heute .tb b { font-weight: 700; } .heute .tb b[data-s="good"] { color: var(--good); } .heute .tb b[data-s="ok"] { color: var(--warn); } .heute .tb b[data-s="bad"] { color: var(--bad); }
 .heute .hs b { font-weight: 600; }
 .heute .hs b[data-s="good"] { color: var(--good); } .heute .hs b[data-s="ok"] { color: var(--warn); } .heute .hs b[data-s="bad"] { color: var(--bad); }
 .tage { margin-top: .2em; }
@@ -388,6 +394,7 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
       <div class="heute" id="heute" hidden>
         <div class="hv" id="h-v">–<small> kWh</small></div>
         <div class="hs" id="h-s"></div>
+        <div class="tb" id="tagesbudget" hidden></div>
         <div class="wasser" id="wasser" hidden></div>
       </div>
       <div class="tage h24" id="h24"></div>
@@ -470,6 +477,7 @@ const RICHTUNG = {
   "Waldhof, Bahnhof": "Waldhof Bahnhof",
 };
 function richtung(d) { if (RICHTUNG[d]) return RICHTUNG[d]; const k = Object.keys(RICHTUNG).find(k => d.startsWith(k)); return k ? RICHTUNG[k] : d; }
+const TAGESBUDGET_EUR = null;   // festes Tagesbudget in €, z. B. 2.00 – null = aus dem kWh-Ziel × Monats-Durchschnittspreis
 const ZIEL = { strom_kwh: 2100, kaltwasser_m3: 80, warmwasser_m3: 24, waerme_kwh: 2900 };
 const SAISON = {
   strom_kwh:     [.095,.085,.085,.08,.075,.075,.08,.08,.085,.085,.085,.09],
@@ -773,6 +781,18 @@ function render(data) {
     document.getElementById("h-v").innerHTML = fmt(heuteKwh, 1) + "<small> / " + fmt(tagesziel, 1) + " kWh</small>" + (ct ? ` <small>· ${fmt(ct.eur, 2)} €</small>` : "");
     document.getElementById("h-s").innerHTML = `<b data-s="${st}">${txt.charAt(0).toUpperCase() + txt.slice(1)}</b> · Soll bis ${now.getHours()} Uhr ${fmt(erwartet, 1)} kWh` + (prog != null ? `· Tagesprognose ${fmt(prog, 1)} kWh` : "");
     document.getElementById("heute-datum").textContent = now.toLocaleDateString("de-DE", { weekday: "long" });
+    // Tagesbudget in Euro
+    const cm = data.cost && data.cost.month, preis = cm && cm.kwh ? cm.eur / cm.kwh : 0.28;
+    const budgetEur = TAGESBUDGET_EUR || tagesziel * preis;
+    const tb = document.getElementById("tagesbudget");
+    if (ct && ct.eur != null) {
+      tb.hidden = false;
+      const diff = ct.eur - budgetEur, pct = Math.min(100, ct.eur / budgetEur * 100);
+      const sB = ct.eur <= budgetEur * frac * 1.05 ? "good" : ct.eur <= budgetEur ? "ok" : "bad";
+      const rest = budgetEur - ct.eur;
+      tb.innerHTML = `<span>Budget <b>${fmt(budgetEur, 2)} €</b></span><span class="bar" style="--soll:${Math.min(100, frac * 100)}%"><i data-s="${sB}" style="width:${pct}%"></i></span><b data-s="${sB}">${diff > 0 ? "+" + fmt(diff, 2) + " € drüber" : fmt(rest, 2) + " € übrig"}</b>`;
+    } else tb.hidden = true;
+    window._budgetEur = budgetEur; window._preis = preis;
     const W24 = data.wasser24 || {}, wz = document.getElementById("wasser");
     const parts = [];
     if (data.grundlast_w != null) parts.push(`<span><b data-s="${data.grundlast_w <= 40 ? "good" : data.grundlast_w <= 70 ? "ok" : "bad"}">${fmt(data.grundlast_w)} W</b> <small>Grundlast nachts</small></span>`);
@@ -805,14 +825,17 @@ function render(data) {
   if (ds.length) {
     const max = Math.max(tagesziel * 1.3, ...ds.map(x => x.v));
     const heuteISO = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0");
-    let bars = "", labels = "";
+    const bEur = window._budgetEur || 0, pr = window._preis || 0.28;
+    let bars = "", labels = "", drueber = 0, summe = 0;
     for (const x of ds) {
       const c = x.v <= tagesziel ? "var(--good)" : x.v <= tagesziel * 1.2 ? "var(--warn)" : "var(--bad)";
-      const d = new Date(x.d + "T00:00");
-      bars += `<i class="${x.d === heuteISO ? "heute" : ""}" style="--h:${Math.max(4, x.v / max * 100)}%;--c:${c}" title="${fmt(x.v,1)} kWh"></i>`;
+      const d = new Date(x.d + "T00:00"), eur = x.v * pr;
+      if (x.d !== heuteISO) { summe += eur; if (bEur && eur > bEur) drueber++; }
+      bars += `<i class="${x.d === heuteISO ? "heute" : ""}" style="--h:${Math.max(4, x.v / max * 100)}%;--c:${c}" title="${fmt(x.v,1)} kWh ≈ ${fmt(eur,2)} €"></i>`;
       labels += `<span>${d.toLocaleDateString("de-DE", { weekday: "short" }).replace(".", "")}</span>`;
     }
-    tg.innerHTML = `<div class="kopf">Letzte 7 Tage · Ziel ${fmt(tagesziel, 1)} kWh/Tag</div><div class="bars" style="--ziel:${100 - tagesziel / max * 100}%">${bars}</div><div class="labels">${labels}</div>`;
+    const n = ds.filter(x => x.d !== heuteISO).length;
+    tg.innerHTML = `<div class="kopf">Letzte 7 Tage · Ziel ${fmt(tagesziel, 1)} kWh ≈ ${fmt(bEur, 2)} €/Tag${n ? ` · <b>${drueber} von ${n}</b> Tagen über Budget · Ø ${fmt(summe / n, 2)} €` : ""}</div><div class="bars" style="--ziel:${100 - tagesziel / max * 100}%">${bars}</div><div class="labels">${labels}</div>`;
   }
   const tage = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
   const bs = budget("strom_kwh", now, data), gez = data.month && data.month.days_counted || 0;
