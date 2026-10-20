@@ -13,6 +13,7 @@ COOKIE_SECRET = hashlib.sha256((TOKEN + "|" + PIN).encode()).hexdigest()   # Coo
 COOKIE_AGE = 365 * 24 * 3600
 HERE = os.path.dirname(os.path.abspath(__file__))
 _spec = importlib.util.spec_from_file_location("einkauf", os.path.join(HERE, "einkauf.py")); EINKAUF = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(EINKAUF)
+_wp = importlib.util.spec_from_file_location("webpush", os.path.join(HERE, "webpush.py")); WEBPUSH = importlib.util.module_from_spec(_wp); _wp.loader.exec_module(WEBPUSH)
 LOCK = threading.Lock()
 
 PHONE_PAGE = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -165,6 +166,94 @@ p{color:var(--bad);font-size:.9rem;min-height:1.2em;margin:0}</style></head><bod
 <form method="post" action="login"><h1>Franklin Tafel</h1><input name="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" autofocus required><button>Öffnen</button><p>__MSG__</p></form>
 </body></html>"""
 
+# ---------------- Push-Benachrichtigungen (Web Push) ----------------
+PUSH_FILE = os.path.join(os.path.dirname(os.environ.get("EINKAUF_STATE", os.path.join(HERE, "x"))), "push.json")
+
+def _push_store_load():
+    if EINKAUF.SPEICHER.aktiv():
+        try:
+            d = EINKAUF.SPEICHER.db()
+            cfg = d["config"].find_one({"_id": "push"}) or {}
+            abos = list(d["push_abos"].find({}, {"_id": 0}))
+            return {"keys": cfg.get("keys"), "abos": abos}
+        except Exception as e:
+            print("push load:", e, flush=True)
+    try:
+        return json.load(open(PUSH_FILE, encoding="utf-8"))
+    except Exception:
+        return {"keys": None, "abos": []}
+
+def _push_keys():
+    st = _push_store_load()
+    if st.get("keys"):
+        return st["keys"]
+    keys = WEBPUSH.vapid_keys()
+    if EINKAUF.SPEICHER.aktiv():
+        try:
+            EINKAUF.SPEICHER.db()["config"].update_one({"_id": "push"}, {"$set": {"keys": keys}}, upsert=True); return keys
+        except Exception as e:
+            print("push keys:", e, flush=True)
+    st["keys"] = keys; json.dump(st, open(PUSH_FILE, "w"))
+    return keys
+
+def _push_abo_set(sub, wer, geraet):
+    doc = {"endpoint": sub["endpoint"], "sub": sub, "wer": wer, "geraet": geraet, "at": time.strftime("%Y-%m-%dT%H:%M")}
+    if EINKAUF.SPEICHER.aktiv():
+        try:
+            EINKAUF.SPEICHER.db()["push_abos"].update_one({"endpoint": sub["endpoint"]}, {"$set": doc}, upsert=True); return
+        except Exception as e:
+            print("push abo:", e, flush=True)
+    st = _push_store_load(); st["abos"] = [a for a in st["abos"] if a["endpoint"] != sub["endpoint"]] + [doc]; json.dump(st, open(PUSH_FILE, "w"))
+
+def _push_abo_del(endpoint):
+    if EINKAUF.SPEICHER.aktiv():
+        try:
+            EINKAUF.SPEICHER.db()["push_abos"].delete_one({"endpoint": endpoint}); return
+        except Exception as e:
+            print("push del:", e, flush=True)
+    st = _push_store_load(); st["abos"] = [a for a in st["abos"] if a["endpoint"] != endpoint]; json.dump(st, open(PUSH_FILE, "w"))
+
+PUSH_QUEUE = []           # (wer, aktion, text)
+PUSH_TIMER = None
+def push_event(wer, aktion, text):
+    """Ereignis sammeln; nach 20 s eine gebündelte Nachricht an alle anderen Geräte."""
+    global PUSH_TIMER
+    PUSH_QUEUE.append((wer, aktion, text))
+    if PUSH_TIMER is None:
+        PUSH_TIMER = threading.Timer(20, _push_flush); PUSH_TIMER.daemon = True; PUSH_TIMER.start()
+
+def _push_flush():
+    global PUSH_TIMER
+    PUSH_TIMER = None
+    ev, PUSH_QUEUE[:] = list(PUSH_QUEUE), []
+    if not ev:
+        return
+    try:
+        st = _push_store_load(); keys = _push_keys()
+        by = {}
+        for wer, aktion, text in ev:
+            by.setdefault(wer or "Jemand", {}).setdefault(aktion, []).append(text)
+        lines = []
+        for wer, akt in by.items():
+            parts = []
+            if akt.get("dazu"): parts.append("+ " + ", ".join(akt["dazu"]))
+            if akt.get("abgehakt"): parts.append("✓ " + ", ".join(akt["abgehakt"]))
+            if akt.get("nimmt"): parts.append("kauft " + ", ".join(akt["nimmt"]))
+            if akt.get("geleert"): parts.append("Liste geleert")
+            lines.append(f"{wer}: " + " · ".join(parts))
+        body = "\n".join(lines)[:300]
+        akteure = {wer for wer, _, _ in ev if wer}
+        for a in st.get("abos", []):
+            if a.get("wer") and a["wer"] in akteure and akteure == {a["wer"]}:
+                continue                                     # eigene Änderungen nicht melden
+            code, txt = WEBPUSH.send(a["sub"], {"title": "Einkaufsliste", "body": body, "url": "einkauf/"}, keys, sub=os.environ.get("VAPID_SUBJECT", "mailto:homeos@example.org"))
+            if code in (404, 410):
+                _push_abo_del(a["endpoint"])
+            elif code >= 300:
+                print("push", code, txt, flush=True)
+    except Exception as e:
+        print("push flush:", e, flush=True)
+
 class H(http.server.SimpleHTTPRequestHandler):
     extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".html": "text/html; charset=utf-8", ".json": "application/json; charset=utf-8", ".webmanifest": "application/manifest+json", ".svg": "image/svg+xml", ".png": "image/png"}
     def __init__(self, *a, **k):
@@ -229,6 +318,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._apply(q.get("text", [""])[0], who=(q.get("wer", [""])[0].strip()[:20] or "Handy"))
         if sub and sub.startswith("/ean/"):
             return self._json(ean_lookup(sub[5:]))
+        if sub == "/push/key":
+            return self._json({"key": _push_keys()["public"]})
         super().do_GET()
     def do_POST(self):
         if self.path.split("?", 1)[0] == "/login":
@@ -240,7 +331,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             time.sleep(1.5)                               # bremst Durchprobieren
             return self._html(LOGIN_PAGE.replace("__MSG__", "Falsche PIN."), code=401)
         sub = self._einkauf_path()
-        if sub not in ("/add", "/photo", "/claim", "/nehmen"):
+        if sub not in ("/add", "/photo", "/claim", "/nehmen", "/push/subscribe", "/push/unsubscribe"):
             self.send_response(404); self.end_headers(); return
         n = int(self.headers.get("Content-Length") or 0)
         if n > 6_000_000:
@@ -254,6 +345,12 @@ class H(http.server.SimpleHTTPRequestHandler):
                 return self._json({"error": f"Foto-Erkennung fehlgeschlagen: {e}"})
         form = json.loads(raw) if "json" in ctype else {k: v[0] for k, v in urllib.parse.parse_qs(raw).items()}
         who = (form.get("wer") or "").strip()[:20] or "Tafel"
+        if sub == "/push/subscribe":
+            if not (isinstance(form.get("subscription"), dict) and form["subscription"].get("endpoint")):
+                return self._json({"error": "subscription fehlt"}, 400)
+            _push_abo_set(form["subscription"], who if who != "Tafel" else "", (form.get("geraet") or "")[:60]); return self._json({"ok": True})
+        if sub == "/push/unsubscribe":
+            _push_abo_del((form.get("endpoint") or "")); return self._json({"ok": True})
         if sub == "/claim":
             return self._apply(None, who=who, claim=(form.get("kat") or "alle"))
         if sub == "/nehmen":
@@ -270,6 +367,14 @@ class H(http.server.SimpleHTTPRequestHandler):
             state = EINKAUF.load()
             reply = EINKAUF.claim(state, claim, who) if claim else (EINKAUF.nehmen(state, nehmen, who) if nehmen else EINKAUF.apply_message(state, text or "", who))
             EINKAUF.save(state)
+            try:
+                if reply.startswith("Dazu: "): push_event(who, "dazu", reply[6:])
+                elif reply.startswith("Abgehakt: "): push_event(who, "abgehakt", reply[10:])
+                elif reply.startswith("Liste geleert"): push_event(who, "geleert", "")
+                elif " kauft " in reply and nehmen: push_event(who, "nimmt", reply.split(" kauft ", 1)[1].rstrip("."))
+                elif " übernimmt " in reply: push_event(who, "nimmt", reply.split(" übernimmt ", 1)[1].rstrip("."))
+            except Exception as e:
+                print("push event:", e, flush=True)
             EINKAUF.export(state, os.path.join(ROOT, "einkauf.json"))
             out = json.load(open(os.path.join(ROOT, "einkauf.json"), encoding="utf-8")); out["reply"] = reply
         body = json.dumps(out, ensure_ascii=False).encode("utf-8")

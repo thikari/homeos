@@ -28,6 +28,9 @@
   .ek-wer .ek-claim { display: inline-flex; align-items: center; gap: .4em; border-radius: 999px; font-size: 1em; }
   .ek-wer .ek-claim svg { width: 1.1em; height: 1.1em; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .ek-wer .ek-claim.on { background: var(--good, #16a35a); border-color: var(--good, #16a35a); color: #fff; }
+  .ek-wer .ek-bell { display: inline-flex; align-items: center; border-radius: 999px; padding: .35em .6em; }
+  .ek-wer .ek-bell svg { width: 1.1em; height: 1.1em; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .ek-wer .ek-bell.on { background: var(--good, #16a35a); border-color: var(--good, #16a35a); color: #fff; }
   .ek-wer .ek-share { margin-left: 0; display: inline-flex; align-items: center; gap: .4em; width: auto; height: auto; border-radius: 999px; font-size: 1em; }
   .ek-wer .ek-share svg { width: 1.1em; height: 1.1em; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   `;
@@ -37,6 +40,7 @@
     cam: '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
     bar: '<svg viewBox="0 0 24 24"><path d="M4 6v12M8 6v12M11 6v12M14 6v12M18 6v12M21 6v12"/></svg>',
     cart: '<svg viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h11.2L21 8H7"/><circle cx="9" cy="19" r="1.3"/><circle cx="17" cy="19" r="1.3"/></svg>',
+    bell: '<svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"/></svg>',
     share: '<svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M5 13v6h14v-6"/></svg>',
   };
 
@@ -68,7 +72,7 @@
     const hasCam = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
     const personen = (window.EINKAUF_PERSONEN || ["Tobi", "Julia"]);
     mount.innerHTML = `
-      <div class="ek-wer">Ich bin: ${personen.map(p => `<button data-w="${p}" class="${getWer() === p ? "on" : ""}">${p}</button>`).join("")}<span class="ek-r"><button class="ek-claim" title="Ich gehe einkaufen – alle Gruppen übernehmen">${I.cart} <span>Alles nehmen</span></button><button class="ek-share" title="Liste als Text teilen">${I.share} Teilen</button></span></div>
+      <div class="ek-wer">Ich bin: ${personen.map(p => `<button data-w="${p}" class="${getWer() === p ? "on" : ""}">${p}</button>`).join("")}<span class="ek-r"><button class="ek-claim" title="Ich gehe einkaufen – alle Gruppen übernehmen">${I.cart} <span>Alles nehmen</span></button><button class="ek-share" title="Liste als Text teilen">${I.share} Teilen</button><button class="ek-bell" title="Benachrichtigung bei Änderungen" hidden>${I.bell}</button></span></div>
       <div class="ek-bar">
         <button data-m="type">${I.type} Tippen</button>
         <button data-m="mic" ${hasSpeech ? "" : "disabled title='Spracherkennung in diesem Browser nicht verfügbar'"}>${I.mic} Sprechen</button>
@@ -87,6 +91,26 @@
       const w = getWer(); if (!w) { alert("Erst oben auf deinen Namen tippen."); return; }
       const j = await post(base, "/einkauf/claim", "kat=alle&wer=" + encodeURIComponent(w)); onUpdate && onUpdate(j);
     });
+    // --- Push-Benachrichtigungen (Handy: Seite muss auf dem Home-Bildschirm liegen) ---
+    const bell = mount.querySelector(".ek-bell");
+    const pushOk = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && !/tafel|ipad/i.test(window.EK_DEVICE || "");
+    const b64 = (s) => { const p = "=".repeat((4 - s.length % 4) % 4); const r = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(r, c => c.charCodeAt(0)); };
+    async function swReg() { return navigator.serviceWorker.register(base + "/sw.js", { scope: base + "/" }); }
+    async function pushState() { try { const r = await swReg(); const s = await r.pushManager.getSubscription(); bell.classList.toggle("on", !!s && Notification.permission === "granted"); bell.title = s ? "Benachrichtigungen an – tippen zum Ausschalten" : "Benachrichtigung bei Änderungen einschalten"; } catch (e) {} }
+    if (pushOk) { bell.hidden = false; pushState(); }
+    bell.addEventListener("click", async () => {
+      try {
+        const r = await swReg(); const cur = await r.pushManager.getSubscription();
+        if (cur) { await post(base, "/einkauf/push/unsubscribe", { endpoint: cur.endpoint }, true); await cur.unsubscribe(); await pushState(); return; }
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") { alert("Benachrichtigungen wurden nicht erlaubt. Auf dem iPhone: Seite zuerst zum Home-Bildschirm hinzufügen und von dort öffnen."); return; }
+        const { key } = await (await fetch(base + "/einkauf/push/key")).json();
+        const sub = await r.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(key) });
+        await post(base, "/einkauf/push/subscribe", { subscription: sub.toJSON(), wer: getWer(), geraet: navigator.userAgent.slice(0, 60) }, true);
+        await pushState();
+      } catch (e) { alert("Push nicht möglich: " + (e.message || e)); }
+    });
+    mount.querySelectorAll(".ek-wer button[data-w]").forEach(b => b.addEventListener("click", async () => { try { const r = await swReg(); const s = await r.pushManager.getSubscription(); if (s) await post(base, "/einkauf/push/subscribe", { subscription: s.toJSON(), wer: getWer() }, true); } catch (e) {} }));
     mount.querySelector(".ek-share").addEventListener("click", async () => {
       let j = getData ? getData() : null;
       if (!j) { try { j = await (await fetch(base + "/einkauf.json", { cache: "no-store" })).json(); } catch (e) { return; } }

@@ -117,3 +117,7 @@ Einkaufsliste: entweder `MONGODB_URI` setzen (Railway-MongoDB oder Atlas; Collec
 | `mobil_fahrzeuge` | `at` | Verfügbarkeit/Akku aller Fahrzeuge je Abruf (für Auslastungs-Statistik) | Cantamen |
 
 Alles wird nur ergänzt bzw. per Schlüssel aktualisiert – nichts wird gelöscht. Indizes werden beim ersten Start angelegt.
+
+## Push-Benachrichtigungen
+
+Glocke neben „Teilen" auf der Handy-Seite: einmal antippen → Berechtigung → das Gerät bekommt bei Änderungen der *anderen* Person eine Nachricht („Julia: + Milch, Eier · ✓ Windeln"), gebündelt über 20 s. Eigene Änderungen werden nicht gemeldet. Web Push (RFC 8291/8292) ohne Fremddienst: `webpush.py`, VAPID-Schlüssel werden beim ersten Mal erzeugt und in MongoDB (`config`/`push`) bzw. `push.json` gespeichert, Abos in `push_abos`. iPhone: die Seite muss auf dem Home-Bildschirm liegen und von dort geöffnet werden (iOS ≥ 16.4). Optional `VAPID_SUBJECT=mailto:…`.

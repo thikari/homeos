@@ -976,7 +976,7 @@ async function ladenEinkauf() {
   renderEinkauf(EINKAUF);
 }
 ladenEinkauf(); setInterval(ladenEinkauf, 60e3);
-if (window.initEinkauf) initEinkauf({ mount: document.getElementById("ek"), base: location.pathname.replace(/\/$/, ""), onUpdate: (j) => { EINKAUF = j; renderEinkauf(j); }, getData: () => EINKAUF });
+window.EK_DEVICE = "tafel"; if (window.initEinkauf) initEinkauf({ mount: document.getElementById("ek"), base: location.pathname.replace(/\/$/, ""), onUpdate: (j) => { EINKAUF = j; renderEinkauf(j); }, getData: () => EINKAUF });
 let DATA = { live:{}, month:null, events:[] };
 async function laden() {
   try { const r = await fetch("data.json", { cache: "no-store" }); if (r.ok) DATA = await r.json(); } catch (e) {}
