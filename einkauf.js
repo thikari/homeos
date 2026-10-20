@@ -96,11 +96,16 @@
     const pushOk = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && !/tafel|ipad/i.test(window.EK_DEVICE || "");
     const b64 = (s) => { const p = "=".repeat((4 - s.length % 4) % 4); const r = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(r, c => c.charCodeAt(0)); };
     async function swReg() { return navigator.serviceWorker.register(base + "/sw.js", { scope: base + "/" }); }
-    async function pushState() { try { const r = await swReg(); const s = await r.pushManager.getSubscription(); bell.classList.toggle("on", !!s && Notification.permission === "granted"); bell.title = s ? "Benachrichtigungen an – tippen zum Ausschalten" : "Benachrichtigung bei Änderungen einschalten"; } catch (e) {} }
+    const installed = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    async function pushState() { try { const r = await swReg(); if (!r.pushManager) return; const s = await r.pushManager.getSubscription(); bell.classList.toggle("on", !!s && Notification.permission === "granted"); bell.title = s ? "Benachrichtigungen an – tippen zum Ausschalten" : "Benachrichtigung bei Änderungen einschalten"; } catch (e) {} }
     if (pushOk) { bell.hidden = false; pushState(); }
     bell.addEventListener("click", async () => {
       try {
-        const r = await swReg(); const cur = await r.pushManager.getSubscription();
+        if (isIOS && !installed) { alert("Auf dem iPhone gehen Benachrichtigungen nur als Home-Bildschirm-App:\n\n1. In Safari unten „Teilen“ → „Zum Home-Bildschirm“\n2. Die Seite über das neue Symbol öffnen\n3. Dort auf die Glocke tippen"); return; }
+        const r = await swReg();
+        if (!r.pushManager) { alert("Dieser Browser unterstützt keine Push-Benachrichtigungen" + (isIOS ? " – bitte die Seite vom Home-Bildschirm aus öffnen." : ".")); return; }
+        const cur = await r.pushManager.getSubscription();
         if (cur) { await post(base, "/einkauf/push/unsubscribe", { endpoint: cur.endpoint }, true); await cur.unsubscribe(); await pushState(); return; }
         const perm = await Notification.requestPermission();
         if (perm !== "granted") { alert("Benachrichtigungen wurden nicht erlaubt. Auf dem iPhone: Seite zuerst zum Home-Bildschirm hinzufügen und von dort öffnen."); return; }
@@ -110,7 +115,7 @@
         await pushState();
       } catch (e) { alert("Push nicht möglich: " + (e.message || e)); }
     });
-    mount.querySelectorAll(".ek-wer button[data-w]").forEach(b => b.addEventListener("click", async () => { try { const r = await swReg(); const s = await r.pushManager.getSubscription(); if (s) await post(base, "/einkauf/push/subscribe", { subscription: s.toJSON(), wer: getWer() }, true); } catch (e) {} }));
+    mount.querySelectorAll(".ek-wer button[data-w]").forEach(b => b.addEventListener("click", async () => { try { if (!pushOk) return; const r = await swReg(); if (!r.pushManager) return; const s = await r.pushManager.getSubscription(); if (s) await post(base, "/einkauf/push/subscribe", { subscription: s.toJSON(), wer: getWer() }, true); } catch (e) {} }));
     mount.querySelector(".ek-share").addEventListener("click", async () => {
       let j = getData ? getData() : null;
       if (!j) { try { j = await (await fetch(base + "/einkauf.json", { cache: "no-store" })).json(); } catch (e) { return; } }
