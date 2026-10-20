@@ -261,9 +261,34 @@ def uebernahme(state):
             out[k] = {"wer": wer.pop()}
     return out
 
+STANDARD = ["Milch", "Eier", "Butter", "Brot", "Käse", "Joghurt", "Bananen", "Äpfel", "Tomaten", "Gurke", "Paprika", "Kartoffeln", "Zwiebeln", "Nudeln", "Reis",
+            "Haferflocken", "Müsli", "Toast", "Hähnchen", "Hackfleisch", "Wurst", "Frischkäse", "Quark", "Sahne", "Apfelsaft", "Wasser", "Kaffee", "Windeln", "Feuchttücher",
+            "Toilettenpapier", "Küchenrolle", "Spülmittel", "Spültabs", "Waschmittel", "Zahnpasta", "Müllbeutel"]
+
+def vorschlaege(state, n=24):
+    """Schnell-dazu-Chips: häufig hinzugefügte Artikel (Log, 120 Tage) vor der Standardliste; was schon auf der Liste steht, fällt raus."""
+    drauf = {i["name"].lower() for i in state["items"]}
+    out, seen = [], set()
+    try:
+        d = SPEICHER.db()
+        if d is not None:
+            seit = (dt.datetime.now() - dt.timedelta(days=120)).isoformat()
+            pipe = [{"$match": {"aktion": "dazu", "at": {"$gte": seit}, "name": {"$ne": None}}}, {"$group": {"_id": {"$toLower": "$name"}, "n": {"$sum": 1}, "name": {"$first": "$name"}}}, {"$sort": {"n": -1}}, {"$limit": 60}]
+            for r in d["einkauf_log"].aggregate(pipe):
+                if r["_id"] not in drauf and r["_id"] not in seen and r["n"] >= 2:
+                    out.append(r["name"]); seen.add(r["_id"])
+    except Exception as e:
+        print("vorschlaege:", e, file=sys.stderr)
+    for x in STANDARD:
+        if len(out) >= n:
+            break
+        if x.lower() not in drauf and x.lower() not in seen:
+            out.append(x); seen.add(x.lower())
+    return out[:n]
+
 def export(state, outp):
     out = {"items": [{**i, "kat": i.get("kat") or kategorie(i["name"]), "offers": state["offers"].get(i["name"], [])} for i in state["items"]],
-           "uebernahme": uebernahme(state), "personen": PERSONEN,
+           "uebernahme": uebernahme(state), "personen": PERSONEN, "vorschlaege": vorschlaege(state),
            "updated": dt.datetime.now().isoformat(timespec="minutes"), "errors": {}}
     tmp = outp + ".tmp"; json.dump(out, open(tmp, "w", encoding="utf-8"), ensure_ascii=False, indent=1); os.replace(tmp, outp)
 

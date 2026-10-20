@@ -960,6 +960,7 @@ const eur = v => v == null ? "–" : v.toLocaleString("de-DE", { minimumFraction
 function renderEinkauf(e) {
   const items = e.items || [];
   if (window.einkaufClaimState) einkaufClaimState(e);
+  if (window.einkaufVorschlaege) einkaufVorschlaege(e);
   { const ue = e.uebernahme || {}; const wer = ["vorrat", "frisch", "drogerie"].map(k => ue[k] && ue[k].wer).filter(Boolean); const b = document.getElementById("einkauf-wer");
     b.hidden = !wer.length; b.textContent = wer.length === 3 && new Set(wer).size === 1 ? `${wer[0]} kauft ein` : [...new Set(wer)].join(" & ") + " kaufen ein"; }
   document.getElementById("einkauf-n").textContent = items.length ? items.length + " Artikel" : "";

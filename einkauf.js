@@ -21,6 +21,13 @@
   .ek-vorschlag button { font: inherit; font-weight: 600; padding: .55em .9em; border-radius: 999px; border: 1.5px solid var(--good, #16a35a); background: #fff; color: var(--good, #16a35a); }
   .ek-vorschlag button.weg { opacity: .35; text-decoration: line-through; }
   .ek-sprech { font-size: 1.25em; font-weight: 600; min-height: 1.5em; }
+  .ek-schnell { margin: 0 0 1em; }
+  .ek-schnell summary { cursor: pointer; font-size: .8em; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted, #5f7691); list-style: none; display: flex; align-items: center; gap: .4em; }
+  .ek-schnell summary::-webkit-details-marker { display: none; }
+  .ek-schnell summary::after { content: "▾"; font-size: 1.1em; } .ek-schnell[open] summary::after { content: "▴"; }
+  .ek-chips { display: flex; flex-wrap: wrap; gap: .45em; margin-top: .6em; }
+  .ek-chips button { font: inherit; font-weight: 600; font-size: .92em; padding: .45em .85em; border-radius: 999px; border: 1.5px solid var(--line, #d9e3ee); background: #fff; color: var(--fg, #0f2a4a); cursor: pointer; touch-action: manipulation; }
+  .ek-chips button:active, .ek-chips button.weg { background: var(--good, #16a35a); border-color: var(--good, #16a35a); color: #fff; }
   .ek-wer { display: flex; align-items: center; gap: .4em; flex-wrap: wrap; margin: 0 0 .6em; font-size: .85em; color: var(--muted, #5f7691); }
   .ek-wer button { font: inherit; font-weight: 700; padding: .35em .8em; border-radius: 999px; border: 1.5px solid var(--line, #d9e3ee); background: #fff; color: var(--muted, #5f7691); cursor: pointer; }
   .ek-wer button.on { background: var(--fg, #0f2a4a); border-color: var(--fg, #0f2a4a); color: #fff; }
@@ -79,10 +86,19 @@
         <button data-m="cam">${I.cam} Foto</button>
         <button data-m="bar" ${hasCam ? "" : "disabled"}>${I.bar} Barcode</button>
       </div>
-      <div class="ek-panel" id="ek-panel"></div>`;
+      <div class="ek-panel" id="ek-panel"></div>
+      <details class="ek-schnell" id="ek-schnell"><summary>Schnell dazu</summary><div class="ek-chips"></div></details>`;
     const panel = mount.querySelector("#ek-panel");
     let aktiv = null, stopFn = null;
 
+    const chips = mount.querySelector(".ek-chips"), schnell = mount.querySelector("#ek-schnell");
+    try { schnell.open = localStorage.getItem("ek-schnell") !== "zu"; } catch (e) {}
+    schnell.addEventListener("toggle", () => { try { localStorage.setItem("ek-schnell", schnell.open ? "auf" : "zu"); } catch (e) {} });
+    window.einkaufVorschlaege = (j) => {
+      const v = (j && j.vorschlaege) || []; chips.innerHTML = "";
+      for (const n of v) { const b = document.createElement("button"); b.type = "button"; b.textContent = "+ " + n; b.onclick = async () => { b.classList.add("weg"); b.disabled = true; try { await add(n); } catch (e) { b.classList.remove("weg"); b.disabled = false; } }; chips.appendChild(b); }
+      schnell.hidden = !v.length;
+    };
     const add = async (text, sprache) => { const j = await post(base, "/einkauf/add", "text=" + encodeURIComponent(text) + (sprache ? "&sprache=1" : "") + "&wer=" + encodeURIComponent(getWer())); onUpdate && onUpdate(j); return j.reply; };
     mount.querySelectorAll(".ek-wer button[data-w]").forEach(b => b.addEventListener("click", () => { setWer(getWer() === b.dataset.w ? "" : b.dataset.w); mount.querySelectorAll(".ek-wer button[data-w]").forEach(x => x.classList.toggle("on", getWer() === x.dataset.w)); }));
     const claimBtn = mount.querySelector(".ek-claim");

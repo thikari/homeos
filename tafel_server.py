@@ -60,7 +60,7 @@ const base = location.pathname.replace(/\/einkauf\/?$/, "");
 async function load(){ const r = await fetch(base + "/einkauf.json", {cache:"no-store"}); const j = await r.json(); render(j); }
 const KAT = [["vorrat","Vorrat · Discounter"],["frisch","Frisch · Markt / Supermarkt"],["drogerie","Drogerie & Haushalt"]];
 let FILTER = "alle";
-function render(j){ LAST = j; if (j.personen) window.EINKAUF_PERSONEN = j.personen; if (window.einkaufClaimState) einkaufClaimState(j); const ul = document.getElementById("l"); ul.innerHTML = "";
+function render(j){ LAST = j; if (j.personen) window.EINKAUF_PERSONEN = j.personen; if (window.einkaufClaimState) einkaufClaimState(j); if (window.einkaufVorschlaege) einkaufVorschlaege(j); const ul = document.getElementById("l"); ul.innerHTML = "";
   const me = wer(); const f = document.getElementById("filter"); f.hidden = !me; f.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.f === FILTER)); f.querySelector('[data-f="meine"]').textContent = (me||"Meine") + " (" + j.items.filter(i => i.wer_kauft === me).length + ")";
   const items = FILTER === "meine" && me ? j.items.filter(i => i.wer_kauft === me) : j.items;
   if(!items.length){ ul.innerHTML = '<li class="leer">' + (FILTER === "meine" ? "Nichts übernommen – nach rechts wischen, um Artikel zu nehmen." : "Noch nichts auf der Liste") + '</li>'; return; }
@@ -222,6 +222,23 @@ def push_event(wer, aktion, text):
     if PUSH_TIMER is None:
         PUSH_TIMER = threading.Timer(20, _push_flush); PUSH_TIMER.daemon = True; PUSH_TIMER.start()
 
+def push_sofort(wer, titel, text):
+    """Sofort (ohne Bündelung) an alle anderen Geräte – z. B. wenn jemand den Einkauf übernimmt."""
+    def run():
+        try:
+            st = _push_store_load(); keys = _push_keys()
+            for a in st.get("abos", []):
+                if a.get("wer") and a["wer"] == wer:
+                    continue
+                code, txt = WEBPUSH.send(a["sub"], {"title": titel, "body": text, "url": "einkauf/"}, keys, sub=os.environ.get("VAPID_SUBJECT", "mailto:homeos@example.org"), urgency="high")
+                if code in (404, 410):
+                    _push_abo_del(a["endpoint"])
+                elif code >= 300:
+                    print("push", code, txt, flush=True)
+        except Exception as e:
+            print("push sofort:", e, flush=True)
+    threading.Thread(target=run, daemon=True).start()
+
 def _push_flush():
     global PUSH_TIMER
     PUSH_TIMER = None
@@ -372,7 +389,11 @@ class H(http.server.SimpleHTTPRequestHandler):
                 elif reply.startswith("Abgehakt: "): push_event(who, "abgehakt", reply[10:])
                 elif reply.startswith("Liste geleert"): push_event(who, "geleert", "")
                 elif " kauft " in reply and nehmen: push_event(who, "nimmt", reply.split(" kauft ", 1)[1].rstrip("."))
-                elif " übernimmt " in reply: push_event(who, "nimmt", reply.split(" übernimmt ", 1)[1].rstrip("."))
+                elif " übernimmt " in reply:
+                    n_items = len([i for i in state["items"] if i.get("wer_kauft") == who])
+                    was = {"alle": "den ganzen Einkauf", "vorrat": "Vorrat / Discounter", "frisch": "Frisch / Markt", "drogerie": "Drogerie & Haushalt"}.get(claim, claim)
+                    push_sofort(who, "Einkauf übernommen", f"{who} übernimmt {was} – {n_items} Artikel")
+                elif reply.startswith("Freigegeben") and claim == "alle": push_sofort(who, "Einkauf freigegeben", f"{who} gibt den Einkauf wieder frei")
             except Exception as e:
                 print("push event:", e, flush=True)
             EINKAUF.export(state, os.path.join(ROOT, "einkauf.json"))
