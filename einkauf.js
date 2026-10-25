@@ -48,6 +48,7 @@
     bar: '<svg viewBox="0 0 24 24"><path d="M4 6v12M8 6v12M11 6v12M14 6v12M18 6v12M21 6v12"/></svg>',
     cart: '<svg viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h11.2L21 8H7"/><circle cx="9" cy="19" r="1.3"/><circle cx="17" cy="19" r="1.3"/></svg>',
     bell: '<svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"/></svg>',
+    bon: '<svg viewBox="0 0 24 24"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21zM9 8h6M9 12h6M9 16h4"/></svg>',
     share: '<svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M5 13v6h14v-6"/></svg>',
   };
 
@@ -85,6 +86,7 @@
         <button data-m="mic" ${hasSpeech ? "" : "disabled title='Spracherkennung in diesem Browser nicht verfügbar'"}>${I.mic} Sprechen</button>
         <button data-m="cam">${I.cam} Foto</button>
         <button data-m="bar" ${hasCam ? "" : "disabled"}>${I.bar} Barcode</button>
+        <button data-m="bon">${I.bon} Kassenzettel</button>
       </div>
       <div class="ek-panel" id="ek-panel"></div>
       <details class="ek-schnell" id="ek-schnell"><summary>Schnell dazu</summary><div class="ek-chips"></div></details>`;
@@ -191,6 +193,28 @@
       };
       inp.click();
     };
+    // --- Kassenzettel → Haushaltsbuch ---
+    const eurF = (v) => (v == null ? "–" : Number(v).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €");
+    const modeBon = () => {
+      open("bon", `<input type="file" accept="image/*" capture="environment" hidden><div class="ek-status">Kassenzettel fotografieren – Laden, Summe und Posten werden gelesen und ins Haushaltsbuch eingetragen.</div>`);
+      const inp = panel.querySelector("input"); inp.onchange = async () => {
+        const f = inp.files[0]; if (!f) return; status("Kassenzettel wird gelesen …");
+        const b64 = await new Promise((res) => { const img = new Image(); img.onload = () => { const c = document.createElement("canvas"); const s = Math.min(1, 1600 / Math.max(img.width, img.height)); c.width = img.width * s; c.height = img.height * s; c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); res(c.toDataURL("image/jpeg", 0.85).split(",")[1]); }; img.src = URL.createObjectURL(f); });
+        try {
+          const j = await post(base, "/haushalt/scan", { image: b64 }, true);
+          if (j.error) { status(j.error); return; }
+          const n = (j.posten || []).length;
+          status(`<b>${j.laden || "?"}</b> · <b>${eurF(j.summe)}</b> · ${n} Posten · ${j.datum || ""} · ${j.kategorie || ""}`);
+          const v = panel.querySelector(".ek-vorschlag") || panel.appendChild(Object.assign(document.createElement("div"), { className: "ek-vorschlag" }));
+          v.innerHTML = "";
+          const ok = document.createElement("button"); ok.textContent = "✓ Speichern"; ok.onclick = async () => { ok.disabled = true; const r = await post(base, "/haushalt/add", { ...j, wer: getWer() }, true); status(r.reply || "Gespeichert."); v.innerHTML = `<a href="${base}/haushalt/" style="color:var(--bad,#2a6fdb);font-weight:600">Haushaltsbuch öffnen →</a>`; if (r.reply && /abgehakt/.test(r.reply)) { try { const e = await (await fetch(base + "/einkauf.json", { cache: "no-store" })).json(); onUpdate && onUpdate(e); } catch (x) {} } };
+          const nein = document.createElement("button"); nein.textContent = "Verwerfen"; nein.style.cssText = "border-color:var(--line,#d9e3ee);color:var(--muted,#5f7691)"; nein.onclick = () => close();
+          v.append(ok, nein);
+          if (n) { const d = document.createElement("div"); d.style.cssText = "font-size:.85em;color:var(--muted,#5f7691);margin-top:.5em;max-height:8em;overflow:auto;width:100%"; d.innerHTML = j.posten.map(p => `<div style="display:flex;justify-content:space-between"><span>${p.menge ? p.menge + " " : ""}${p.name}</span><span>${eurF(p.preis)}</span></div>`).join(""); v.appendChild(d); }
+        } catch (e) { status("Fehler: " + e.message); }
+      };
+      inp.click();
+    };
     // --- Barcode ---
     const modeBar = async () => {
       open("bar", `<video playsinline muted autoplay></video><div class="ek-status">Lade Scanner …</div>`);
@@ -222,7 +246,7 @@
     mount.querySelectorAll(".ek-bar button").forEach(b => b.addEventListener("click", () => {
       if (b.disabled) return;
       if (aktiv === b.dataset.m) { close(); return; }
-      ({ type: modeType, mic: modeMic, cam: modeCam, bar: modeBar })[b.dataset.m]();
+      ({ type: modeType, mic: modeMic, cam: modeCam, bar: modeBar, bon: modeBon })[b.dataset.m]();
     }));
   };
 })();
