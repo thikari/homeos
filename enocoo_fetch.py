@@ -153,21 +153,31 @@ def fetch_raw(op, today):
 def build(raw, now, events, weather=None, departures=None):
     today = now.date()
     kwh15, hours, prices = raw["l24"]
-    power_w = round(kwh15[-1] * 4 * 1000) if kwh15 else None
-    price_now = prices[-1] if prices else None
+    # Das Portal liefert null, wenn ein Wert noch nicht feststeht (z. B. Zeitumstellung) – solche Werte überall überspringen
+    num = lambda v: v if isinstance(v, (int, float)) else None
+    kwh15 = [num(v) for v in kwh15]; prices = [num(v) for v in prices]
+    letzte_kwh = next((v for v in reversed(kwh15) if v is not None), None)
+    power_w = round(letzte_kwh * 4 * 1000) if letzte_kwh is not None else None
+    price_now = next((p for p in reversed(prices) if p is not None), None)
     profil = {}
     for h, p in zip(hours, prices):
-        profil.setdefault(h, []).append(p)
-    price_profile = {str(h): round(sum(v) / len(v) * 100, 1) for h, v in profil.items()}
+        if p is not None:
+            profil.setdefault(h, []).append(p)
+    price_profile = {str(h): round(sum(v) / len(v) * 100, 1) for h, v in profil.items() if v}
     # Viertelstundenpreise mit Zeitstempel (letzter Wert = jetzt, 15-min-Raster rückwärts)
     n = len(prices); end = now.replace(second=0, microsecond=0); end = end - dt.timedelta(minutes=end.minute % 15)
-    price_24h = [{"t": (end - dt.timedelta(minutes=15 * (n - 1 - i))).isoformat(timespec="minutes"), "ct": round(p * 100, 2), "kwh": kwh15[i]} for i, p in enumerate(prices)]
+    gefuellt, letzter = [], None                       # fehlende Preise mit dem letzten bekannten fortschreiben, damit Chart und Kalibrierung sauber bleiben
+    for p in prices:
+        letzter = p if p is not None else letzter
+        gefuellt.append(letzter)
+    price_24h = [{"t": (end - dt.timedelta(minutes=15 * (n - 1 - i))).isoformat(timespec="minutes"), "ct": round(p * 100, 2) if p is not None else None, "kwh": kwh15[i] or 0} for i, p in enumerate(gefuellt)]
+    kwh15 = [v or 0 for v in kwh15]
     pv = raw.get("pv") or [[], [], []]
     last = lambda a: (a[-1] if a else None)
     month = {"year": today.year, "month": today.month}
     daily = {}
     for key, rk in (("strom_kwh", "m_strom"), ("kaltwasser_m3", "m_kalt"), ("warmwasser_m3", "m_warm"), ("waerme_kwh", "m_waerme")):
-        vals = raw[rk][0]
+        vals = [v if isinstance(v, (int, float)) else 0 for v in (raw.get(rk) or [[]])[0]]
         daily[key] = vals
         month[key] = round(sum(vals), 2)
     month["days_counted"] = len(daily["strom_kwh"])
@@ -183,7 +193,7 @@ def build(raw, now, events, weather=None, departures=None):
     # Wasser letzte 24 h in Litern (Viertelstundenwerte m³ → l)
     def l24(key):
         v = raw.get(key)
-        return round(sum(v[0]) * 1000) if v and v[0] else None
+        return round(sum(x for x in v[0] if isinstance(x, (int, float))) * 1000) if v and v[0] else None
     wasser24 = {"kalt_l": l24("w24_kalt"), "warm_l": l24("w24_warm")}
     # Grundlast: kleinste Stundensumme der letzten 24 h (typisch nachts), in Watt
     hour_sums = {}
@@ -210,7 +220,7 @@ def build(raw, now, events, weather=None, departures=None):
         "grundlast_w": grundlast_w,
         "yesterday": {"strom_kwh": round(allstrom[-2], 2) if len(allstrom) >= 2 else None, "kaltwasser_m3": round(daily["kaltwasser_m3"][-2], 3) if len(daily["kaltwasser_m3"]) >= 2 else None},
         "week_avg_strom_kwh": round(sum(week) / len(week), 2) if week else None,
-        "pv_today_kwh": round(sum(pv[1]) / 4),
+        "pv_today_kwh": round(sum(x for x in (pv[1] if len(pv) > 1 else []) if isinstance(x, (int, float))) / 4),
         "year_strom_kwh": round(sum(raw["jahr"][0]), 1),
         "events": events,
         "weather": weather,
