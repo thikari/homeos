@@ -8,6 +8,7 @@ Env: HAUSHALT_BUDGET_EUR (Monatsbudget, Standard 900), ANTHROPIC_API_KEY (Scan),
 import os, sys, json, re, uuid, datetime as dt, importlib.util, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+_ll = importlib.util.spec_from_file_location("llm", os.path.join(HERE, "llm.py")); LLM = importlib.util.module_from_spec(_ll); _ll.loader.exec_module(LLM)
 _sp = importlib.util.spec_from_file_location("speicher", os.path.join(HERE, "speicher.py")); SPEICHER = importlib.util.module_from_spec(_sp); _sp.loader.exec_module(SPEICHER)
 STATE = os.environ.get("HAUSHALT_STATE", os.path.join(os.path.dirname(os.environ.get("EINKAUF_STATE", HERE + "/x")), "haushalt_state.json"))
 BUDGET = float(os.environ.get("HAUSHALT_BUDGET_EUR", "900"))
@@ -99,32 +100,35 @@ def export(outp):
 
 # ---------- Scan ----------
 def scan(b64):
-    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if not key:
-        return {"error": "Kassenzettel-Scan ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt in Railway). Betrag kann von Hand eingetragen werden."}
-    prompt = ("Das ist ein Kassenzettel aus Deutschland. Lies ihn und antworte NUR mit JSON: "
-              '{"laden": "Name des Geschäfts (kurz, z. B. Lidl, REWE, dm)", "datum": "YYYY-MM-DD oder null", "summe": Gesamtbetrag als Zahl, '
+    if not LLM.anbieter():
+        return {"error": "Kassenzettel-Scan ist nicht eingerichtet – " + LLM.fehlt() + " Betrag kann von Hand eingetragen werden."}
+    if not b64:
+        return {"error": "Kein Bild erhalten."}
+    prompt = ("Das ist ein Kassenzettel aus Deutschland. Lies ihn sorgfältig und antworte NUR mit einem JSON-Objekt: "
+              '{"laden": "Name des Geschäfts kurz (z. B. Lidl, REWE, dm, ALDI)", "datum": "YYYY-MM-DD oder null", "summe": gezahlter Gesamtbetrag als Zahl, '
               '"posten": [{"name": "Artikel kurz", "preis": Zahl, "menge": "z. B. 2x oder 0,5 kg oder null"}], "kategorie": eine von ' + json.dumps(KATEGORIEN, ensure_ascii=False) + '}. '
-              "Pfand, Rabatte und Coupons als eigene Posten mit negativem Preis. Summe = tatsächlich gezahlter Betrag. Wenn unleserlich, Felder null lassen.")
-    body = {"model": os.environ.get("TAFEL_VISION_MODEL", "claude-haiku-5-5"), "max_tokens": 1500,
-            "messages": [{"role": "user", "content": [{"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}}, {"type": "text", "text": prompt}]}]}
-    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=json.dumps(body).encode(), method="POST",
-                                 headers={"x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        j = json.load(r)
-    text = "".join(c.get("text", "") for c in j.get("content", []))
-    m = text[text.find("{"): text.rfind("}") + 1]
+              "Pfand, Rabatte und Coupons als eigene Posten mit negativem Preis. Dezimalzahlen mit Punkt. Unleserliche Felder null.")
     try:
-        d = json.loads(m)
-    except Exception:
+        text = LLM.frage(prompt, image_b64=b64, max_tokens=1500)
+        d = LLM.json_aus(text)
+    except Exception as e:
+        return {"error": f"Scan fehlgeschlagen: {str(e)[:160]}"}
+    if not isinstance(d, dict):
         return {"error": "Beleg nicht lesbar – bitte näher und gerade fotografieren."}
     d["kategorie"] = d.get("kategorie") if d.get("kategorie") in KATEGORIEN else kategorie_fuer(d.get("laden"))
     if not d.get("datum") or not re.match(r"^\d{4}-\d{2}-\d{2}$", str(d["datum"])):
         d["datum"] = dt.date.today().isoformat()
+    posten = []
+    for p in d.get("posten") or []:
+        try:
+            posten.append({"name": str(p.get("name", "")).strip()[:60], "preis": round(float(str(p.get("preis", 0)).replace(",", ".")), 2), "menge": p.get("menge")})
+        except Exception:
+            pass
+    d["posten"] = [p for p in posten if p["name"]]
     try:
-        d["summe"] = round(float(d.get("summe") or sum(float(p.get("preis") or 0) for p in d.get("posten") or [])), 2)
+        d["summe"] = round(float(str(d.get("summe") or sum(p["preis"] for p in d["posten"])).replace(",", ".")), 2)
     except Exception:
-        d["summe"] = 0
+        d["summe"] = round(sum(p["preis"] for p in d["posten"]), 2)
     d["quelle"] = "scan"
     return d
 

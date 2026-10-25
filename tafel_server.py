@@ -13,6 +13,7 @@ COOKIE_SECRET = hashlib.sha256((TOKEN + "|" + PIN).encode()).hexdigest()   # Coo
 COOKIE_AGE = 365 * 24 * 3600
 HERE = os.path.dirname(os.path.abspath(__file__))
 _spec = importlib.util.spec_from_file_location("einkauf", os.path.join(HERE, "einkauf.py")); EINKAUF = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(EINKAUF)
+_ll = importlib.util.spec_from_file_location("llm", os.path.join(HERE, "llm.py")); LLM = importlib.util.module_from_spec(_ll); _ll.loader.exec_module(LLM)
 _hh = importlib.util.spec_from_file_location("haushalt", os.path.join(HERE, "haushalt.py")); HAUSHALT = importlib.util.module_from_spec(_hh); _hh.loader.exec_module(HAUSHALT)
 _wp = importlib.util.spec_from_file_location("webpush", os.path.join(HERE, "webpush.py")); WEBPUSH = importlib.util.module_from_spec(_wp); _wp.loader.exec_module(WEBPUSH)
 LOCK = threading.Lock()
@@ -111,64 +112,36 @@ def ean_lookup(code):
     return {"name": None, "ean": code}
 
 def photo_items(b64):
-    """Foto → Liste von Produktnamen über die Claude-API (Schlüssel ANTHROPIC_API_KEY)."""
-    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if not key:
-        return {"error": "Foto-Erkennung ist nicht eingerichtet (ANTHROPIC_API_KEY fehlt in Railway)."}
+    """Foto → Liste von Produktnamen (Mistral oder Claude)."""
+    if not LLM.anbieter():
+        return {"error": "Foto-Erkennung ist nicht eingerichtet – " + LLM.fehlt()}
     if not b64:
         return {"error": "Kein Bild erhalten."}
-    import urllib.request
     prompt = ("Das ist ein Foto aus einem Haushalt in Deutschland: ein Produkt, eine Verpackung, ein Kühlschrank- oder Vorratsregal oder ein handgeschriebener Zettel. "
-              "Nenne die Lebensmittel bzw. Haushaltsartikel, die man auf eine Einkaufsliste setzen würde – bei einer Verpackung das Produkt (kurz, wie man es auf eine Liste schreibt, z. B. 'Haltbare Milch 1,5 %'), "
-              "bei einem Zettel die aufgeschriebenen Artikel, bei einem Regal die erkennbaren Produkte. Antworte NUR mit einem JSON-Array aus Strings auf Deutsch, maximal 12 Einträge, keine Erklärung.")
-    body = {"model": os.environ.get("TAFEL_VISION_MODEL", "claude-haiku-5-5"), "max_tokens": 300,
-            "messages": [{"role": "user", "content": [{"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}}, {"type": "text", "text": prompt}]}]}
-    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=json.dumps(body).encode(), method="POST",
-                                 headers={"x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=40) as r:
-        j = json.load(r)
-    text = "".join(c.get("text", "") for c in j.get("content", []))
-    m = text[text.find("["): text.rfind("]") + 1]
-    items = json.loads(m) if m else []
-    items = [str(x).strip() for x in items if str(x).strip()][:12]
-    return {"items": items}
+              "Nenne die Lebensmittel bzw. Haushaltsartikel, die man auf eine Einkaufsliste setzen würde – bei einer Verpackung das Produkt (kurz, z. B. 'Haltbare Milch 1,5 %'), "
+              "bei einem Zettel die aufgeschriebenen Artikel, bei einem Regal die erkennbaren Produkte. Antworte NUR mit JSON: {\"items\": [\"…\", …]} auf Deutsch, maximal 12 Einträge.")
+    text = LLM.frage(prompt, image_b64=b64, max_tokens=300)
+    d = LLM.json_aus(text) or {}
+    items = d.get("items") if isinstance(d, dict) else (d if isinstance(d, list) else [])
+    return {"items": [str(x).strip() for x in (items or []) if str(x).strip()][:12]}
 
 def gesprochen_zerlegen(text):
-    """Diktierter Satz → kommagetrennte Artikel. Mit ANTHROPIC_API_KEY über Claude, sonst Wortlisten-Heuristik."""
+    """Diktierter Satz → kommagetrennte Artikel. Mit KI-Schlüssel über das Modell, sonst Wortlisten-Heuristik."""
     t = re.sub(r"\s+", " ", text or "").strip().rstrip(".!?")
     if not t:
         return ""
-    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if key:
+    if LLM.anbieter():
         try:
-            import urllib.request
-            prompt = ("Das ist ein diktierter Satz für eine Einkaufsliste (Deutsch, evtl. mit Erkennungsfehlern): \"" + t + "\"\n"
-                      "Zerlege ihn in einzelne Artikel, so wie man sie auf eine Liste schreibt (Mengen behalten, z. B. '2 Liter Milch', Füllwörter wie 'bitte', 'noch', 'wir brauchen' weglassen, "
-                      "Abhaken erkennen: wenn jemand sagt 'Milch ist erledigt/streichen/haben wir', dann 'x Milch'). Antworte NUR mit einem JSON-Array aus Strings.")
-            body = {"model": os.environ.get("TAFEL_TEXT_MODEL", "claude-haiku-5-5"), "max_tokens": 200, "messages": [{"role": "user", "content": prompt}]}
-            req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=json.dumps(body).encode(), method="POST",
-                                         headers={"x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=20) as r:
-                j = json.load(r)
-            out = "".join(c.get("text", "") for c in j.get("content", []))
-            items = json.loads(out[out.find("["): out.rfind("]") + 1])
-            items = [str(x).strip() for x in items if str(x).strip()]
+            prompt = ("Das ist ein diktierter Satz für eine Einkaufsliste (Deutsch oder Englisch, evtl. mit Erkennungsfehlern): \"" + t + "\"\n"
+                      "Zerlege ihn in einzelne Artikel, so wie man sie auf eine Liste schreibt (Mengen behalten, z. B. '2 Liter Milch'; Füllwörter wie 'bitte', 'noch', 'wir brauchen' weglassen; "
+                      "sagt jemand 'Milch ist erledigt/streichen/haben wir', dann 'x Milch'). Antworte NUR mit JSON: {\"items\": [\"…\"]}.")
+            d = LLM.json_aus(LLM.frage(prompt, max_tokens=200)) or {}
+            items = [str(x).strip() for x in (d.get("items") or []) if str(x).strip()]
             if items:
                 return "\n".join(items)
         except Exception as e:
-            print("sprache/claude:", e, flush=True)
+            print("sprache/ki:", e, flush=True)
     return EINKAUF.zerlege_gesprochen(t)
-
-LOGIN_PAGE = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Franklin Tafel</title>
-<style>:root{--fg:#0f2a4a;--muted:#5f7691;--line:#d9e3ee;--bad:#2a6fdb}body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:-apple-system,"Manrope",system-ui,sans-serif;color:var(--fg);background:#fff}
-form{width:min(22em,90vw);display:grid;gap:.8em}h1{margin:0 0 .2em;font-size:1.1rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-input{font:inherit;font-size:1.6rem;letter-spacing:.3em;text-align:center;padding:.6em;border:1.5px solid var(--line);border-radius:14px}button{font:inherit;font-weight:700;font-size:1.05rem;padding:.8em;border:0;border-radius:14px;background:var(--fg);color:#fff}
-p{color:var(--bad);font-size:.9rem;min-height:1.2em;margin:0}</style></head><body>
-<form method="post" action="login"><h1>Franklin Tafel</h1><input name="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" autofocus required><button>Öffnen</button><p>__MSG__</p></form>
-</body></html>"""
-
-# ---------------- Push-Benachrichtigungen (Web Push) ----------------
-PUSH_FILE = os.path.join(os.path.dirname(os.environ.get("EINKAUF_STATE", os.path.join(HERE, "x"))), "push.json")
 
 def _push_store_load():
     if EINKAUF.SPEICHER.aktiv():
@@ -388,7 +361,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             self.send_response(404); self.end_headers(); return
         if rel == "/status":
             st = {"speicher": "datei", "pfad": os.environ.get("EINKAUF_STATE"), "mongodb_uri_gesetzt": bool(os.environ.get("MONGODB_URI")), "mongodb": None,
-                  "pin": bool(PIN), "franklin_login": bool(os.environ.get("FRANKLIN_LOGIN")), "anthropic_key": bool(os.environ.get("ANTHROPIC_API_KEY"))}
+                  "pin": bool(PIN), "franklin_login": bool(os.environ.get("FRANKLIN_LOGIN")), "ki": LLM.anbieter()}
             if os.environ.get("MONGODB_URI"):
                 try:
                     d = EINKAUF.SPEICHER.db(); d.command("ping")
