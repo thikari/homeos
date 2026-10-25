@@ -61,6 +61,16 @@ def mobil_loop():
 
 threading.Thread(target=fetch_loop, daemon=True).start()
 threading.Thread(target=einkauf_loop, daemon=True).start()
+def haushalt_loop():
+    while True:
+        try:
+            r = subprocess.run([sys.executable, os.path.join(HERE, "haushalt.py"), os.path.join(WWW, "haushalt.json")], capture_output=True, text=True, timeout=60, env=os.environ)
+            if r.returncode != 0:
+                print("haushalt failed:", r.stderr.strip()[-300:], flush=True)
+        except Exception as e:
+            print("haushalt error:", e, flush=True)
+        time.sleep(600)
+threading.Thread(target=haushalt_loop, daemon=True).start()
 threading.Thread(target=mobil_loop, daemon=True).start()
 os.environ.setdefault("TAFEL_PORT", os.environ.get("PORT", "8787"))
 os.environ["TAFEL_ROOT"] = WWW

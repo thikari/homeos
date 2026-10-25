@@ -121,3 +121,7 @@ Alles wird nur ergänzt bzw. per Schlüssel aktualisiert – nichts wird gelösc
 ## Push-Benachrichtigungen
 
 Glocke neben „Teilen" auf der Handy-Seite: einmal antippen → Berechtigung → das Gerät bekommt bei Änderungen der *anderen* Person eine Nachricht („Julia: + Milch, Eier · ✓ Windeln"), gebündelt über 20 s. Eigene Änderungen werden nicht gemeldet. Web Push (RFC 8291/8292) ohne Fremddienst: `webpush.py`, VAPID-Schlüssel werden beim ersten Mal erzeugt und in MongoDB (`config`/`push`) bzw. `push.json` gespeichert, Abos in `push_abos`. iPhone: die Seite muss auf dem Home-Bildschirm liegen und von dort geöffnet werden (iOS ≥ 16.4). Optional `VAPID_SUBJECT=mailto:…`.
+
+## Haushaltsbuch (Tab „Haushalt" · Handy-Seite `/haushalt/`)
+
+Kassenzettel fotografieren → Claude liest Laden, Datum, Summe und Posten (`ANTHROPIC_API_KEY`, Modell `TAFEL_VISION_MODEL`) → prüfen → speichern. Oder von Hand (Laden, Betrag, Kategorie, Wer). Posten vom Beleg, die auf der Einkaufsliste stehen, werden automatisch abgehakt. Übersicht: Monat vs. Budget (`HAUSHALT_BUDGET_EUR`, Standard 900) mit Soll-Marke und Prognose, nach Kategorie, Laden und Person, letzte 8 Wochen, 6 Monate, letzte Belege. Speicher: MongoDB-Collection `ausgaben` (sonst Datei `haushalt_state.json`).

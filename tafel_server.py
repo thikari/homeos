@@ -13,6 +13,7 @@ COOKIE_SECRET = hashlib.sha256((TOKEN + "|" + PIN).encode()).hexdigest()   # Coo
 COOKIE_AGE = 365 * 24 * 3600
 HERE = os.path.dirname(os.path.abspath(__file__))
 _spec = importlib.util.spec_from_file_location("einkauf", os.path.join(HERE, "einkauf.py")); EINKAUF = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(EINKAUF)
+_hh = importlib.util.spec_from_file_location("haushalt", os.path.join(HERE, "haushalt.py")); HAUSHALT = importlib.util.module_from_spec(_hh); _hh.loader.exec_module(HAUSHALT)
 _wp = importlib.util.spec_from_file_location("webpush", os.path.join(HERE, "webpush.py")); WEBPUSH = importlib.util.module_from_spec(_wp); _wp.loader.exec_module(WEBPUSH)
 LOCK = threading.Lock()
 
@@ -271,6 +272,77 @@ def _push_flush():
     except Exception as e:
         print("push flush:", e, flush=True)
 
+HAUSHALT_PAGE = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Haushalt"><title>homeOS · Haushalt</title>
+<link rel="icon" type="image/svg+xml" href="../icon.svg"><link rel="apple-touch-icon" href="../icon-180.png"><link rel="manifest" href="../manifest.webmanifest">
+<style>
+:root{--fg:#0f2a4a;--muted:#5f7691;--line:#d9e3ee;--soft:#edf3f9;--good:#16a35a;--warn:#e3b000;--bad:#2a6fdb;--mono:ui-monospace,Menlo,monospace}
+body{margin:0;font-family:-apple-system,"Manrope",system-ui,sans-serif;color:var(--fg);background:#fff;padding:env(safe-area-inset-top) 16px 40px}
+h1{font-size:1.1rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:1.2rem 0 .8rem}
+h2{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bad);margin:1.4rem 0 .5rem}
+.row{display:flex;justify-content:space-between;align-items:center;gap:.6rem}
+.big{font-size:2rem;font-weight:800;letter-spacing:-.02em;line-height:1}.big small{font-size:.5em;font-weight:500;color:var(--muted)}
+.bar{height:.6rem;background:var(--soft);border-radius:999px;overflow:hidden;position:relative;margin:.5rem 0 .3rem}.bar i{display:block;height:100%;background:var(--good);border-radius:999px}.bar i[data-s=ok]{background:var(--warn)}.bar i[data-s=bad]{background:var(--bad)}
+.bar::after{content:"";position:absolute;top:-2px;bottom:-2px;left:var(--soll,100%);border-left:1.5px dashed var(--fg);opacity:.6}
+.hint{color:var(--muted);font-size:.85rem;line-height:1.5}
+.btns{display:flex;gap:.5rem;margin:.8rem 0}.btns button{flex:1;font:inherit;font-weight:700;font-size:1rem;padding:.9rem;border:1.5px solid var(--line);border-radius:14px;background:#fff;color:var(--fg)}.btns button.p{background:var(--fg);color:#fff;border-color:var(--fg)}
+form{display:grid;gap:.5rem;margin:.6rem 0 1rem;padding:1rem;border:1.5px solid var(--line);border-radius:16px;background:var(--soft)}form[hidden]{display:none}
+input,select{font:inherit;font-size:1.05rem;padding:.65rem .8rem;border:1.5px solid var(--line);border-radius:12px;background:#fff;min-width:0}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.ok{font:inherit;font-weight:700;padding:.8rem;border:0;border-radius:12px;background:var(--good);color:#fff}.x{font:inherit;padding:.6rem;border:1.5px solid var(--line);border-radius:12px;background:#fff;color:var(--muted)}
+.posten{font-size:.85rem;color:var(--muted);max-height:9rem;overflow:auto;background:#fff;border-radius:10px;padding:.5rem .7rem}.posten div{display:flex;justify-content:space-between}
+ul{list-style:none;margin:0;padding:0}li{display:grid;grid-template-columns:auto 1fr auto;gap:.8rem;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--line)}
+li .d{font-family:var(--mono);font-size:.8rem;color:var(--muted);white-space:nowrap}li .l{font-weight:600}li .l small{display:block;font-weight:500;color:var(--muted);font-size:.8rem}li .e{font-family:var(--mono);font-weight:700;white-space:nowrap}
+li .e button{margin-left:.5rem;border:0;background:none;color:var(--muted);font-size:1rem}
+.kat{display:grid;gap:.3rem}.kat div{display:grid;grid-template-columns:7rem 1fr 4.5rem;gap:.5rem;align-items:center;font-size:.9rem}.kat i{display:block;height:.5rem;background:var(--bad);border-radius:999px}.kat b{font-family:var(--mono);text-align:right}
+.st{color:var(--muted);font-size:.9rem;min-height:1.2rem}
+.wk{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;align-items:end;height:48px}.wk i{display:block;background:var(--bad);border-radius:3px 3px 0 0;height:var(--h)}.wk i.now{background:var(--good)}
+</style></head><body>
+<div class="row"><h1>Haushaltsbuch</h1><a href="../einkauf/" style="color:var(--bad);font-size:.9rem;text-decoration:none">Einkaufsliste →</a></div>
+<div class="big" id="m-eur">– €<small> im Monat</small></div><div class="bar" id="m-bar"><i style="width:0"></i></div><div class="hint" id="m-hint"></div>
+<div class="btns"><button class="p" id="b-scan">📷 Kassenzettel scannen</button><button id="b-hand">Von Hand</button></div>
+<input type="file" accept="image/*" capture="environment" id="file" hidden>
+<div class="st" id="st"></div>
+<form id="f" hidden>
+  <div class="g2"><input name="laden" placeholder="Laden (Lidl, dm …)" required><input name="summe" type="number" step="0.01" inputmode="decimal" placeholder="Betrag €" required></div>
+  <div class="g2"><input name="datum" type="date"><select name="kategorie"></select></div>
+  <div class="g2"><select name="wer"><option value="">Wer?</option></select><input name="notiz" placeholder="Notiz (optional)"></div>
+  <div class="posten" id="posten" hidden></div>
+  <div class="g2"><button type="button" class="x" id="abbr">Abbrechen</button><button class="ok">Speichern</button></div>
+</form>
+<h2>Nach Kategorie</h2><div class="kat" id="kat"></div>
+<h2>Letzte 8 Wochen</h2><div class="wk" id="wk"></div>
+<h2>Letzte Belege</h2><ul id="l"><li class="hint">Lade …</li></ul>
+<script>
+const base = location.pathname.replace(/\/haushalt\/?$/, "");
+let D = null, POSTEN = [];
+const eur = v => (v==null?"–":v.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €");
+function wer(){ try { return localStorage.getItem("ek-wer") || ""; } catch(e){ return ""; } }
+async function load(){ const r = await fetch(base + "/haushalt.json", {cache:"no-store"}); if(r.ok){ D = await r.json(); render(); } }
+function render(){ const m = D.monat; document.getElementById("m-eur").innerHTML = eur(m.eur) + `<small> von ${eur(D.budget)} · ${m.belege} Belege</small>`;
+  const pct = Math.min(100, m.eur / D.budget * 100), soll = m.soll_bis_heute, s = m.eur <= soll ? "good" : m.eur <= D.budget ? "ok" : "bad";
+  document.getElementById("m-bar").innerHTML = `<i data-s="${s}" style="width:${pct}%"></i>`; document.getElementById("m-bar").style.setProperty("--soll", (m.tag/m.tage*100)+"%");
+  document.getElementById("m-hint").textContent = (m.eur <= soll ? `${eur(soll - m.eur)} unter Plan` : `${eur(m.eur - soll)} über Plan`) + ` · Soll bis heute ${eur(soll)}` + (m.prognose ? ` · Prognose ${eur(m.prognose)}` : "") + ` · Vormonat ${eur(D.vormonat.eur)}`;
+  const k = document.getElementById("kat"); const max = Math.max(1, ...m.kategorien.map(x=>x.eur)); k.innerHTML = m.kategorien.map(x=>`<div><span>${x.name}</span><i style="width:${x.eur/max*100}%"></i><b>${eur(x.eur)}</b></div>`).join("") || '<div class="hint">Noch keine Ausgaben in diesem Monat.</div>';
+  const w = document.getElementById("wk"); const wm = Math.max(1, ...D.wochen.map(x=>x.eur)); w.innerHTML = D.wochen.map((x,i)=>`<i class="${i===D.wochen.length-1?"now":""}" style="--h:${Math.max(4,x.eur/wm*100)}%" title="${x.von}: ${eur(x.eur)}"></i>`).join("");
+  const sel = document.querySelector('select[name=kategorie]'); if(!sel.options.length) sel.innerHTML = D.kategorien.map(x=>`<option>${x}</option>`).join("");
+  const ws = document.querySelector('select[name=wer]'); if(ws.options.length<=1 && D.personen) ws.innerHTML = '<option value="">Wer?</option>' + D.personen.map(x=>`<option ${x===wer()?"selected":""}>${x}</option>`).join("");
+  const ul = document.getElementById("l"); ul.innerHTML = D.letzte.length ? "" : '<li class="hint">Noch keine Belege.</li>';
+  for(const r of D.letzte){ const li = document.createElement("li"); const d = new Date(r.datum+"T00:00"); li.innerHTML = `<span class="d">${d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})}</span><span class="l">${r.laden}<small>${r.kategorie}${r.wer?" · "+r.wer:""}${r.posten&&r.posten.length?" · "+r.posten.length+" Posten":""}${r.quelle==="scan"?" · 📷":""}</small></span><span class="e">${eur(r.summe)}<button title="löschen" data-id="${r.id}">✕</button></span>`;
+    li.querySelector("button").onclick = async (e) => { if(!confirm(`${r.laden} ${eur(r.summe)} löschen?`)) return; await fetch(base+"/haushalt/del",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:r.id})}); load(); }; ul.appendChild(li); } }
+const f = document.getElementById("f"), st = document.getElementById("st");
+function openForm(v){ f.hidden = false; f.laden.value = v.laden||""; f.summe.value = v.summe!=null?v.summe:""; f.datum.value = v.datum||new Date().toISOString().slice(0,10); if(v.kategorie) f.kategorie.value = v.kategorie; POSTEN = v.posten||[]; const p = document.getElementById("posten"); p.hidden = !POSTEN.length; p.innerHTML = POSTEN.map(x=>`<div><span>${x.menge?x.menge+" ":""}${x.name}</span><span>${eur(x.preis)}</span></div>`).join(""); f.dataset.quelle = v.quelle||"manuell"; f.scrollIntoView({behavior:"smooth"}); }
+document.getElementById("b-hand").onclick = () => openForm({});
+document.getElementById("abbr").onclick = () => { f.hidden = true; st.textContent = ""; };
+document.getElementById("b-scan").onclick = () => document.getElementById("file").click();
+document.getElementById("file").onchange = async () => { const file = document.getElementById("file").files[0]; if(!file) return; st.textContent = "Kassenzettel wird gelesen …";
+  const b64 = await new Promise(res => { const img = new Image(); img.onload = () => { const c = document.createElement("canvas"); const s = Math.min(1, 1600/Math.max(img.width,img.height)); c.width = img.width*s; c.height = img.height*s; c.getContext("2d").drawImage(img,0,0,c.width,c.height); res(c.toDataURL("image/jpeg",.85).split(",")[1]); }; img.src = URL.createObjectURL(file); });
+  try { const r = await fetch(base+"/haushalt/scan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image:b64})}); const j = await r.json(); if(j.error){ st.textContent = j.error; return; } st.textContent = `Gelesen: ${j.laden||"?"} · ${eur(j.summe)} · ${(j.posten||[]).length} Posten – bitte prüfen und speichern.`; openForm(j); } catch(e){ st.textContent = "Fehler: " + e.message; } document.getElementById("file").value = ""; };
+f.onsubmit = async (e) => { e.preventDefault(); const fd = new FormData(f); const body = Object.fromEntries(fd.entries()); body.summe = parseFloat(String(body.summe).replace(",", ".")); body.posten = POSTEN; body.quelle = f.dataset.quelle; if(!body.wer) body.wer = wer();
+  const r = await fetch(base+"/haushalt/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}); const j = await r.json(); st.textContent = j.reply || "Gespeichert."; f.hidden = true; load(); };
+load(); setInterval(load, 60000);
+</script></body></html>"""
+
 class H(http.server.SimpleHTTPRequestHandler):
     extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".html": "text/html; charset=utf-8", ".json": "application/json; charset=utf-8", ".webmanifest": "application/manifest+json", ".svg": "image/svg+xml", ".png": "image/png"}
     def __init__(self, *a, **k):
@@ -311,7 +383,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         rel = self._rel()
         if rel is None:
             path = self.path.split("?", 1)[0]
-            if PIN and path in ("/", "/index.html", "/einkauf", "/einkauf/", "/login"):
+            if PIN and path in ("/", "/index.html", "/einkauf", "/einkauf/", "/haushalt", "/haushalt/", "/login"):
                 return self._html(LOGIN_PAGE.replace("__MSG__", ""))
             self.send_response(404); self.end_headers(); return
         if rel == "/status":
@@ -326,6 +398,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._json(st)
         if rel == "/logout":
             return self._html("<meta http-equiv=refresh content='0;url=/'>Abgemeldet.", extra=[("Set-Cookie", "tafel=; Max-Age=0; Path=/")])
+        if rel in ("/haushalt", "/haushalt/"):
+            return self._html(HAUSHALT_PAGE)
         sub = self._einkauf_path()
         if sub in ("", "/"):
             body = PHONE_PAGE.encode("utf-8")
@@ -338,7 +412,45 @@ class H(http.server.SimpleHTTPRequestHandler):
         if sub == "/push/key":
             return self._json({"key": _push_keys()["public"]})
         super().do_GET()
+    def _haushalt(self, rel):
+        n = int(self.headers.get("Content-Length") or 0)
+        if n > 8_000_000:
+            self.send_response(413); self.end_headers(); return
+        try:
+            form = json.loads(self.rfile.read(n).decode("utf-8", "ignore") or "{}")
+        except Exception:
+            form = {}
+        if rel == "/haushalt/scan":
+            try:
+                return self._json(HAUSHALT.scan(form.get("image", "")))
+            except Exception as e:
+                return self._json({"error": f"Scan fehlgeschlagen: {e}"})
+        with LOCK:
+            if rel == "/haushalt/add":
+                e = HAUSHALT.add(form)
+                # Posten vom Beleg mit der Einkaufsliste abgleichen und abhaken
+                abgehakt = []
+                try:
+                    st = EINKAUF.load(); namen = {i["name"].lower(): i["name"] for i in st["items"]}
+                    for p in e.get("posten") or []:
+                        pn = p["name"].lower()
+                        for low, name in list(namen.items()):
+                            if low in pn or (len(low) > 3 and pn.startswith(low[:4])):
+                                EINKAUF.apply_message(st, "x " + name, e.get("wer") or "Beleg"); abgehakt.append(name); namen.pop(low, None)
+                    if abgehakt:
+                        EINKAUF.save(st); EINKAUF.export(st, os.path.join(ROOT, "einkauf.json"))
+                except Exception as ex:
+                    print("beleg→liste:", ex, flush=True)
+                HAUSHALT.export(os.path.join(ROOT, "haushalt.json"))
+                return self._json({"ok": True, "eintrag": e, "reply": f"Gespeichert: {e['laden']} {e['summe']:.2f} €".replace(".", ",") + (f" · abgehakt: {', '.join(abgehakt)}" if abgehakt else "")})
+            if rel == "/haushalt/del":
+                n = HAUSHALT.delete(form.get("id", "")); HAUSHALT.export(os.path.join(ROOT, "haushalt.json"))
+                return self._json({"ok": bool(n)})
+        self.send_response(404); self.end_headers()
     def do_POST(self):
+        rel0 = self._rel()
+        if rel0 and rel0.startswith("/haushalt/"):
+            return self._haushalt(rel0)
         if self.path.split("?", 1)[0] == "/login":
             n = int(self.headers.get("Content-Length") or 0)
             pin = urllib.parse.parse_qs(self.rfile.read(min(n, 4096)).decode("utf-8", "ignore")).get("pin", [""])[0]

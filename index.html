@@ -172,6 +172,26 @@ body[data-tab="einkauf"] .seite-energie { display: none; }
 body[data-tab="mobil"] .seite-mobil { display: block; }
 body[data-tab="mobil"] .seite-energie, body[data-tab="mobil"] .seite-einkauf { display: none; }
 body[data-tab="einkauf"] .seite-mobil { display: none; }
+.seite-haushalt { display: none; }
+body[data-tab="haushalt"] .seite-haushalt { display: block; }
+body[data-tab="haushalt"] .seite-energie, body[data-tab="haushalt"] .seite-einkauf, body[data-tab="haushalt"] .seite-mobil { display: none; }
+body[data-tab="einkauf"] .seite-haushalt, body[data-tab="mobil"] .seite-haushalt { display: none; }
+/* Haushalt */
+.hh { display: grid; grid-template-columns: 1.1fr 1fr; gap: 2.4em; min-height: calc(100vh - 8em); }
+.hh h2 { margin: 0 0 .9em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
+.hh h2 span { font-weight: 500; letter-spacing: 0; text-transform: none; font-family: var(--mono); }
+.hh h3 { margin: 1.4em 0 .5em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--bad); font-weight: 700; }
+.hh .big { font-weight: 800; font-size: 2.6em; letter-spacing: -.02em; line-height: 1; } .hh .big small { font-size: .4em; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.hh .bar { height: .7em; background: var(--soft); border-radius: 999px; overflow: hidden; position: relative; margin: .6em 0 .4em; } .hh .bar i { display: block; height: 100%; background: var(--good); border-radius: 999px; } .hh .bar i[data-s="ok"] { background: var(--warn); } .hh .bar i[data-s="bad"] { background: var(--bad); }
+.hh .bar::after { content: ""; position: absolute; top: -3px; bottom: -3px; left: var(--soll, 100%); border-left: 1.5px dashed var(--fg); opacity: .6; }
+.hh .sub { color: var(--muted); font-size: .9em; } .hh .sub b[data-s="good"] { color: var(--good); } .hh .sub b[data-s="ok"] { color: var(--warn); } .hh .sub b[data-s="bad"] { color: var(--bad); }
+.hh .kat div { display: grid; grid-template-columns: 8em 1fr 5em; gap: .7em; align-items: center; padding: .3em 0; font-size: .95em; } .hh .kat i { display: block; height: .55em; background: var(--bad); border-radius: 999px; } .hh .kat b { font-family: var(--mono); text-align: right; font-weight: 700; }
+.hh .wk { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px; align-items: end; height: 60px; } .hh .wk i { display: block; background: var(--bad); border-radius: 3px 3px 0 0; height: var(--h); } .hh .wk i.now { background: var(--good); }
+.hh .wkl { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px; font-family: var(--mono); font-size: .68em; color: var(--muted); }
+.hh .mon { display: flex; gap: 1.2em; flex-wrap: wrap; font-size: .9em; } .hh .mon span b { font-family: var(--mono); }
+.hh ul { list-style: none; margin: 0; padding: 0; } .hh li { display: grid; grid-template-columns: 3.2em 1fr auto; gap: .8em; align-items: center; padding: .45em 0; border-bottom: 1px solid var(--line); }
+.hh li .d { font-family: var(--mono); font-size: .8em; color: var(--muted); } .hh li .l { font-weight: 600; } .hh li .l small { display: block; font-weight: 500; color: var(--muted); font-size: .8em; } .hh li .e { font-family: var(--mono); font-weight: 700; font-variant-numeric: tabular-nums; }
+.hh .leer { color: var(--muted); }
 /* Mobil */
 .mobil { display: grid; grid-template-columns: 1.25fr 1fr; gap: 2.4em; min-height: calc(100vh - 8em); }
 .mobil h2 { margin: 0 0 .9em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
@@ -256,7 +276,7 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
 .heute .wasser small { color: var(--muted); }
 /* ---------- Tablet hochkant / kleine Fenster ---------- */
 @media (max-width: 1100px) {
-  .mobil { grid-template-columns: 1fr; }
+  .mobil, .hh { grid-template-columns: 1fr; }
   body { min-height: auto; }
   .tafel { min-height: auto; }
   .unten { grid-template-columns: 1fr 1fr; gap: 1.6em 2.4em; }
@@ -279,7 +299,8 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
   .unten h2 { margin-bottom: .35em; }
   .heute { gap: .2em; margin-bottom: .3em; }
   .tage .bars { height: 18px; }
-  .einkauf, .mobil { min-height: auto; gap: 1.4em; }
+  .einkauf, .mobil, .hh { min-height: auto; gap: 1.4em; }
+  .hh { grid-template-columns: 1.1fr 1fr; } .hh h3 { margin-top: .8em; } .hh .big { font-size: 2em; } .hh li { padding: .25em 0; }
   .mobil { grid-template-columns: 1.15fr 1fr; }
   .halte { gap: .7em; }
   .tafel-ab .ab { padding: .18em 0; font-size: 1em; }
@@ -457,10 +478,34 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
   </section>
 </div>
 
+<div class="tafel seite-haushalt">
+  <header>
+    <div><div class="clock" id="clock4">--:--</div><div class="date" id="date4"></div></div>
+    <div class="eyebrow" id="hh-stand"></div>
+  </header>
+  <section class="hh">
+    <div>
+      <h2>Haushaltsbuch <span id="hh-monat"></span></h2>
+      <div class="big" id="hh-eur">– €</div>
+      <div class="bar" id="hh-bar"><i style="width:0"></i></div>
+      <div class="sub" id="hh-sub"></div>
+      <h3>Nach Kategorie</h3><div class="kat" id="hh-kat"></div>
+      <h3>Läden</h3><div class="kat" id="hh-laeden"></div>
+      <h3>Letzte 8 Wochen</h3><div class="wk" id="hh-wk"></div><div class="wkl" id="hh-wkl"></div>
+      <h3>Monate</h3><div class="mon" id="hh-mon"></div>
+    </div>
+    <div>
+      <h2>Letzte Belege <span>Handy-Seite …/haushalt/ · 📷 Kassenzettel scannen</span></h2>
+      <ul id="hh-liste"><li class="leer">Lade …</li></ul>
+    </div>
+  </section>
+</div>
+
 <div class="tabs" role="tablist">
   <button role="tab" aria-selected="true" data-tab="energie">Energie</button>
   <button role="tab" aria-selected="false" data-tab="einkauf">Einkauf</button>
   <button role="tab" aria-selected="false" data-tab="mobil">Mobil</button>
+  <button role="tab" aria-selected="false" data-tab="haushalt">Haushalt</button>
 </div>
 
 <script src="einkauf.js"></script>
@@ -882,8 +927,8 @@ function render(data) {
 function uhr() {
   const n = new Date();
   const t = n.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }), d = n.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" });
-  for (const id of ["clock", "clock2", "clock3"]) document.getElementById(id).textContent = t;
-  for (const id of ["date", "date2", "date3"]) document.getElementById(id).textContent = d;
+  for (const id of ["clock", "clock2", "clock3", "clock4"]) document.getElementById(id).textContent = t;
+  for (const id of ["date", "date2", "date3", "date4"]) document.getElementById(id).textContent = d;
 }
 function setTab(name) {
   document.body.dataset.tab = name;
@@ -891,7 +936,7 @@ function setTab(name) {
   try { localStorage.setItem("tab", name); } catch (e) {}
 }
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
-(function () { let t = "energie"; try { t = ["#einkauf", "#mobil", "#energie"].includes(location.hash) ? location.hash.slice(1) : (localStorage.getItem("tab") || "energie"); } catch (e) {} setTab(t); })();
+(function () { let t = "energie"; try { t = ["#einkauf", "#mobil", "#energie", "#haushalt"].includes(location.hash) ? location.hash.slice(1) : (localStorage.getItem("tab") || "energie"); } catch (e) {} setTab(t); })();
 
 // ---- Mobil ----
 let MOBIL = null;
@@ -954,9 +999,32 @@ async function ladenMobil() {
 }
 ladenMobil(); setInterval(ladenMobil, 60e3); setInterval(() => renderMobil(MOBIL), 30e3);
 
+// ---- Haushalt ----
+const eur = v => v == null ? "–" : v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+let HH = null;
+function renderHaushalt(D) {
+  if (!D) return;
+  const m = D.monat, mon = new Date(m.ym + "-01T00:00").toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+  document.getElementById("hh-monat").textContent = mon + " · Budget " + eur(D.budget);
+  document.getElementById("hh-stand").textContent = D.updated ? "Stand " + D.updated.replace("T", " ") : "";
+  document.getElementById("hh-eur").innerHTML = eur(m.eur) + ` <small>${m.belege} Belege</small>`;
+  const soll = m.soll_bis_heute, st = m.eur <= soll ? "good" : m.eur <= D.budget ? "ok" : "bad";
+  const bar = document.getElementById("hh-bar"); bar.innerHTML = `<i data-s="${st}" style="width:${Math.min(100, m.eur / D.budget * 100)}%"></i>`; bar.style.setProperty("--soll", (m.tag / m.tage * 100) + "%");
+  document.getElementById("hh-sub").innerHTML = `<b data-s="${st}">${m.eur <= soll ? eur(soll - m.eur) + " unter Plan" : eur(m.eur - soll) + " über Plan"}</b> · Soll bis heute ${eur(soll)}` + (m.prognose ? ` · Prognose ${eur(m.prognose)}` : "") + ` · Vormonat ${eur(D.vormonat.eur)}`;
+  const rows = (list, el) => { const max = Math.max(1, ...list.map(x => x.eur)); document.getElementById(el).innerHTML = list.length ? list.map(x => `<div><span>${x.name}</span><i style="width:${x.eur / max * 100}%"></i><b>${eur(x.eur)}</b></div>`).join("") : '<div class="leer">Noch nichts in diesem Monat.</div>'; };
+  rows(m.kategorien, "hh-kat"); rows(m.laeden.slice(0, 6), "hh-laeden");
+  const wm = Math.max(1, ...D.wochen.map(x => x.eur));
+  document.getElementById("hh-wk").innerHTML = D.wochen.map((x, i) => `<i class="${i === D.wochen.length - 1 ? "now" : ""}" style="--h:${Math.max(4, x.eur / wm * 100)}%" title="${eur(x.eur)}"></i>`).join("");
+  document.getElementById("hh-wkl").innerHTML = D.wochen.map(x => `<span>${new Date(x.von + "T00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}</span>`).join("");
+  document.getElementById("hh-mon").innerHTML = D.monate.map(x => `<span>${new Date(x.ym + "-01T00:00").toLocaleDateString("de-DE", { month: "short" })} <b>${eur(x.eur)}</b></span>`).join("");
+  const ul = document.getElementById("hh-liste"); ul.innerHTML = D.letzte.length ? "" : '<li class="leer">Noch keine Belege – auf dem Handy unter …/haushalt/ scannen oder eintragen.</li>';
+  for (const r of D.letzte.slice(0, 14)) { const d = new Date(r.datum + "T00:00"); ul.insertAdjacentHTML("beforeend", `<li><span class="d">${d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}</span><span class="l">${r.laden}<small>${r.kategorie}${r.wer ? " · " + r.wer : ""}${r.posten && r.posten.length ? " · " + r.posten.length + " Posten" : ""}${r.notiz ? " · " + r.notiz : ""}</small></span><span class="e">${eur(r.summe)}</span></li>`); }
+}
+async function ladenHaushalt() { try { const r = await fetch("haushalt.json", { cache: "no-store" }); if (r.ok) HH = await r.json(); } catch (e) {} renderHaushalt(HH); }
+ladenHaushalt(); setInterval(ladenHaushalt, 60e3);
+
 // ---- Einkauf ----
 let EINKAUF = { items: [] };
-const eur = v => v == null ? "–" : v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 function renderEinkauf(e) {
   const items = e.items || [];
   if (window.einkaufClaimState) einkaufClaimState(e);
