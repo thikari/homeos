@@ -34,7 +34,10 @@ def frage(prompt, image_b64=None, max_tokens=800, json_mode=True):
             with urllib.request.urlopen(req, timeout=60) as r:
                 j = json.load(r)
         except urllib.error.HTTPError as e:
-            raise RuntimeError(f"Mistral {e.code}: {e.read().decode('utf-8', 'ignore')[:300]}")
+            msg = e.read().decode("utf-8", "ignore")
+            import re as _re
+            msg = _re.sub(r"data:image/[a-z]+;base64,[A-Za-z0-9+/=]+", "<bild>", msg)
+            raise RuntimeError(f"Mistral {e.code}: {msg[:400]}")
         return j["choices"][0]["message"]["content"]
     if a == "anthropic":
         key = os.environ["ANTHROPIC_API_KEY"].strip()
