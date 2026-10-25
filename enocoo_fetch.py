@@ -162,7 +162,8 @@ def build(raw, now, events, weather=None, departures=None):
     # Viertelstundenpreise mit Zeitstempel (letzter Wert = jetzt, 15-min-Raster rückwärts)
     n = len(prices); end = now.replace(second=0, microsecond=0); end = end - dt.timedelta(minutes=end.minute % 15)
     price_24h = [{"t": (end - dt.timedelta(minutes=15 * (n - 1 - i))).isoformat(timespec="minutes"), "ct": round(p * 100, 2), "kwh": kwh15[i]} for i, p in enumerate(prices)]
-    pv = raw["pv"]
+    pv = raw.get("pv") or [[], [], []]
+    last = lambda a: (a[-1] if a else None)
     month = {"year": today.year, "month": today.month}
     daily = {}
     for key, rk in (("strom_kwh", "m_strom"), ("kaltwasser_m3", "m_kalt"), ("warmwasser_m3", "m_warm"), ("waerme_kwh", "m_waerme")):
@@ -197,7 +198,7 @@ def build(raw, now, events, weather=None, departures=None):
         "live": {
             "power_w": power_w, "price_ct": round(price_now * 100, 1) if price_now is not None else None,
             "ampel": ampel.get("color"), "ampel_price_ct": ampel.get("currentEnergyprice"),
-            "pv_kw": pv[1][-1], "siedlung_kw": pv[0][-1], "autarkie_pct": pv[2][-1],
+            "pv_kw": last(pv[1]) if len(pv) > 1 else None, "siedlung_kw": last(pv[0]) if pv else None, "autarkie_pct": last(pv[2]) if len(pv) > 2 else None,
         },
         "price_profile_ct": price_profile,
         "price_24h": price_24h,
@@ -263,9 +264,16 @@ def main():
     except Exception as e:
         departures = []; errors["vrn"] = f"{type(e).__name__}: {e}"[:300]
 
+    out = None
     if raw:
-        out = build(raw, now, events, weather, departures)
-    else:
+        try:
+            out = build(raw, now, events, weather, departures)
+        except Exception as e:
+            import traceback
+            tb = traceback.extract_tb(e.__traceback__)[-1]
+            errors["aufbereitung"] = f"{type(e).__name__}: {e} (Zeile {tb.lineno})"[:300]
+            print("build fehlgeschlagen:", traceback.format_exc(), file=sys.stderr)
+    if out is None:
         out = {"updated": now.isoformat(timespec="minutes"), "data_until": None, "live": {}, "price_profile_ct": {}, "price_24h": [],
                "month": None, "today": {}, "yesterday": {}, "week_avg_strom_kwh": None, "pv_today_kwh": None, "year_strom_kwh": None,
                "events": events, "weather": weather, "cost": None, "departures": departures}
