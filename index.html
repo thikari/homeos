@@ -185,7 +185,11 @@ body[data-tab="einkauf"] .seite-haushalt, body[data-tab="mobil"] .seite-haushalt
 .hh .bar { height: .7em; background: var(--soft); border-radius: 999px; overflow: hidden; position: relative; margin: .6em 0 .4em; } .hh .bar i { display: block; height: 100%; background: var(--good); border-radius: 999px; } .hh .bar i[data-s="ok"] { background: var(--warn); } .hh .bar i[data-s="bad"] { background: var(--bad); }
 .hh .bar::after { content: ""; position: absolute; top: -3px; bottom: -3px; left: var(--soll, 100%); border-left: 1.5px dashed var(--fg); opacity: .6; }
 .hh .sub { color: var(--muted); font-size: .9em; } .hh .sub b[data-s="good"] { color: var(--good); } .hh .sub b[data-s="ok"] { color: var(--warn); } .hh .sub b[data-s="bad"] { color: var(--bad); }
-.hh .kat div { display: grid; grid-template-columns: 8em 1fr 5em; gap: .7em; align-items: center; padding: .3em 0; font-size: .95em; } .hh .kat i { display: block; height: .55em; background: var(--bad); border-radius: 999px; } .hh .kat b { font-family: var(--mono); text-align: right; font-weight: 700; }
+.hh .kat div { display: grid; grid-template-columns: 8em 1fr 5em; gap: .7em; align-items: center; padding: .3em 0; font-size: .95em; }
+.hh .kb div { grid-template-columns: 8em 1fr 9.5em; } .hh .kb b { white-space: nowrap; } .hh .kb .bar { margin: 0; height: .55em; } .hh .kb .bar i[data-s="ok"] { background: var(--warn); } .hh .kb .bar i[data-s="bad"] { background: var(--bad); }
+.hh .kb b small { font-weight: 500; color: var(--muted); }
+.hh .preise li { grid-template-columns: 1fr auto; } .hh .preise .l small { font-size: .78em; } .hh .preise .e small { display: block; font-weight: 500; color: var(--muted); font-size: .75em; text-align: right; }
+.hh .preise .e b[data-s="good"] { color: var(--good); } .hh .preise .e b[data-s="bad"] { color: var(--bad); } .hh .kat i { display: block; height: .55em; background: var(--bad); border-radius: 999px; } .hh .kat b { font-family: var(--mono); text-align: right; font-weight: 700; }
 .hh .wk { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px; align-items: end; height: 60px; } .hh .wk i { display: block; background: var(--bad); border-radius: 3px 3px 0 0; height: var(--h); } .hh .wk i.now { background: var(--good); }
 .hh .wkl { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px; font-family: var(--mono); font-size: .68em; color: var(--muted); }
 .hh .mon { display: flex; gap: 1.2em; flex-wrap: wrap; font-size: .9em; } .hh .mon span b { font-family: var(--mono); }
@@ -489,14 +493,17 @@ body[data-tab="einkauf"] .seite-haushalt, body[data-tab="mobil"] .seite-haushalt
       <div class="big" id="hh-eur">– €</div>
       <div class="bar" id="hh-bar"><i style="width:0"></i></div>
       <div class="sub" id="hh-sub"></div>
-      <h3>Nach Kategorie</h3><div class="kat" id="hh-kat"></div>
-      <h3>Läden</h3><div class="kat" id="hh-laeden"></div>
+      <h3>Budget nach Kategorie</h3><div class="kat kb" id="hh-kat"></div>
       <h3>Letzte 8 Wochen</h3><div class="wk" id="hh-wk"></div><div class="wkl" id="hh-wkl"></div>
       <h3>Monate</h3><div class="mon" id="hh-mon"></div>
+      <h3>Läden</h3><div class="mon" id="hh-laeden"></div>
     </div>
     <div>
       <h2>Letzte Belege <span>Handy-Seite …/haushalt/ · 📷 Kassenzettel scannen</span></h2>
       <ul id="hh-liste"><li class="leer">Lade …</li></ul>
+      <h3>Nach Produktart</h3><div class="kat" id="hh-prod"></div>
+      <h3>Preise · gleiches Produkt, verschiedene Läden</h3>
+      <ul class="preise" id="hh-preise"><li class="leer">Noch zu wenig Belege mit Posten.</li></ul>
     </div>
   </section>
 </div>
@@ -1011,14 +1018,20 @@ function renderHaushalt(D) {
   const soll = m.soll_bis_heute, st = m.eur <= soll ? "good" : m.eur <= D.budget ? "ok" : "bad";
   const bar = document.getElementById("hh-bar"); bar.innerHTML = `<i data-s="${st}" style="width:${Math.min(100, m.eur / D.budget * 100)}%"></i>`; bar.style.setProperty("--soll", (m.tag / m.tage * 100) + "%");
   document.getElementById("hh-sub").innerHTML = `<b data-s="${st}">${m.eur <= soll ? eur(soll - m.eur) + " unter Plan" : eur(m.eur - soll) + " über Plan"}</b> · Soll bis heute ${eur(soll)}` + (m.prognose ? ` · Prognose ${eur(m.prognose)}` : "") + ` · Vormonat ${eur(D.vormonat.eur)}`;
-  const rows = (list, el) => { const max = Math.max(1, ...list.map(x => x.eur)); document.getElementById(el).innerHTML = list.length ? list.map(x => `<div><span>${x.name}</span><i style="width:${x.eur / max * 100}%"></i><b>${eur(x.eur)}</b></div>`).join("") : '<div class="leer">Noch nichts in diesem Monat.</div>'; };
-  rows(m.kategorien, "hh-kat"); rows(m.laeden.slice(0, 6), "hh-laeden");
+  const rows = (list, el) => { const max = Math.max(1, ...list.map(x => x.eur)); document.getElementById(el).innerHTML = list.length ? list.map(x => `<div><span>${x.name}</span><i style="width:${Math.max(0, x.eur / max * 100)}%"></i><b>${eur(x.eur)}</b></div>`).join("") : '<div class="leer">Noch nichts in diesem Monat.</div>'; };
+  const kb = document.getElementById("hh-kat"); const bud = (m.budgets || []).filter(b => b.budget || b.eur);
+  kb.innerHTML = bud.map(b => { const pct = b.budget ? Math.min(100, b.eur / b.budget * 100) : 0; const st = !b.budget ? "" : b.eur > b.budget ? "bad" : b.eur > b.soll ? "ok" : "good";
+    return `<div><span>${b.name}</span><span class="bar" style="--soll:${b.budget ? Math.min(100, b.soll / b.budget * 100) : 100}%"><i data-s="${st}" style="width:${pct}%"></i></span><b>${eur(b.eur)}<small> / ${eur(b.budget)}</small></b></div>`; }).join("");
+  rows((m.produkte || []).slice(0, 8), "hh-prod");
+  document.getElementById("hh-laeden").innerHTML = m.laeden.slice(0, 6).map(x => `<span>${x.name} <b>${eur(x.eur)}</b></span>`).join("") || '<span class="leer">–</span>';
+  const pl = document.getElementById("hh-preise"); const pr = (D.preise || []).filter(p => p.spanne > 0).slice(0, 6);
+  if (pr.length) pl.innerHTML = pr.map(p => `<li><span class="l">${p.name}<small>${p.n}× gekauft · günstigster ${p.min_laden} ${eur(p.min)} · teuerster ${p.max_laden} ${eur(p.max)}</small></span><span class="e"><b data-s="${p.letzter <= p.min + 0.005 ? "good" : p.letzter >= p.max - 0.005 ? "bad" : ""}">${eur(p.letzter)}</b><small>zuletzt · ${p.letzter_laden}</small></span></li>`).join("");
   const wm = Math.max(1, ...D.wochen.map(x => x.eur));
   document.getElementById("hh-wk").innerHTML = D.wochen.map((x, i) => `<i class="${i === D.wochen.length - 1 ? "now" : ""}" style="--h:${Math.max(4, x.eur / wm * 100)}%" title="${eur(x.eur)}"></i>`).join("");
   document.getElementById("hh-wkl").innerHTML = D.wochen.map(x => `<span>${new Date(x.von + "T00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}</span>`).join("");
   document.getElementById("hh-mon").innerHTML = D.monate.map(x => `<span>${new Date(x.ym + "-01T00:00").toLocaleDateString("de-DE", { month: "short" })} <b>${eur(x.eur)}</b></span>`).join("");
   const ul = document.getElementById("hh-liste"); ul.innerHTML = D.letzte.length ? "" : '<li class="leer">Noch keine Belege – auf dem Handy unter …/haushalt/ scannen oder eintragen.</li>';
-  for (const r of D.letzte.slice(0, 14)) { const d = new Date(r.datum + "T00:00"); ul.insertAdjacentHTML("beforeend", `<li><span class="d">${d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}</span><span class="l">${r.laden}<small>${r.kategorie}${r.wer ? " · " + r.wer : ""}${r.posten && r.posten.length ? " · " + r.posten.length + " Posten" : ""}${r.notiz ? " · " + r.notiz : ""}</small></span><span class="e">${eur(r.summe)}</span></li>`); }
+  for (const r of D.letzte.slice(0, 8)) { const d = new Date(r.datum + "T00:00"); ul.insertAdjacentHTML("beforeend", `<li><span class="d">${d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}</span><span class="l">${r.laden}<small>${r.kategorie}${r.wer ? " · " + r.wer : ""}${r.posten && r.posten.length ? " · " + r.posten.length + " Posten" : ""}${r.notiz ? " · " + r.notiz : ""}</small></span><span class="e">${eur(r.summe)}</span></li>`); }
 }
 async function ladenHaushalt() { try { const r = await fetch("haushalt.json", { cache: "no-store" }); if (r.ok) HH = await r.json(); } catch (e) {} renderHaushalt(HH); }
 ladenHaushalt(); setInterval(ladenHaushalt, 60e3);

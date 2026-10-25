@@ -202,9 +202,9 @@ def push_sofort(wer, titel, text):
         try:
             st = _push_store_load(); keys = _push_keys()
             for a in st.get("abos", []):
-                if a.get("wer") and a["wer"] == wer:
+                if wer and a.get("wer") and a["wer"] == wer:
                     continue
-                code, txt = WEBPUSH.send(a["sub"], {"title": titel, "body": text, "url": "einkauf/"}, keys, sub=os.environ.get("VAPID_SUBJECT", "mailto:homeos@example.org"), urgency="high")
+                code, txt = WEBPUSH.send(a["sub"], {"title": titel, "body": text, "url": "haushalt/" if "udget" in titel else "einkauf/"}, keys, sub=os.environ.get("VAPID_SUBJECT", "mailto:homeos@example.org"), urgency="high")
                 if code in (404, 410):
                     _push_abo_del(a["endpoint"])
                 elif code >= 300:
@@ -212,6 +212,35 @@ def push_sofort(wer, titel, text):
         except Exception as e:
             print("push sofort:", e, flush=True)
     threading.Thread(target=run, daemon=True).start()
+
+MELD_FILE = os.path.join(os.path.dirname(os.environ.get("EINKAUF_STATE", os.path.join(HERE, "x"))), "haushalt_meldungen.json")
+def budget_meldungen(out):
+    """Push an alle, wenn eine Kategorie 80 % bzw. 100 % ihres Monatsbudgets überschreitet (je Monat und Stufe nur einmal)."""
+    ym = out["monat"]["ym"]
+    db = EINKAUF.SPEICHER.db() if EINKAUF.SPEICHER.aktiv() else None
+    if db is not None:
+        st = (db["config"].find_one({"_id": "haushalt_meldungen"}) or {}).get("stufen", {})
+    else:
+        try:
+            st = json.load(open(MELD_FILE))
+        except Exception:
+            st = {}
+    monat = st.setdefault(ym, {})
+    geaendert = False
+    for b in out["monat"].get("budgets") or []:
+        if not b.get("budget"):
+            continue
+        stufe = 100 if b["eur"] >= b["budget"] else (80 if b["eur"] >= b["budget"] * 0.8 else 0)
+        if stufe > monat.get(b["name"], 0):
+            monat[b["name"]] = stufe; geaendert = True
+            eur = lambda v: f"{v:.2f}".replace(".", ",") + " €"
+            txt = f"{b['name']}: {eur(b['eur'])} von {eur(b['budget'])}" + (" – Budget aufgebraucht" if stufe == 100 else f" ({b['pct']} %)")
+            push_sofort(None, "Haushaltsbudget" if stufe == 80 else "Budget überschritten", txt)
+    if geaendert:
+        if db is not None:
+            db["config"].update_one({"_id": "haushalt_meldungen"}, {"$set": {"stufen": {ym: monat}}}, upsert=True)
+        else:
+            json.dump(st, open(MELD_FILE, "w"))
 
 def _push_flush():
     global PUSH_TIMER
@@ -267,7 +296,7 @@ input,select{font:inherit;font-size:1.05rem;padding:.65rem .8rem;border:1.5px so
 ul{list-style:none;margin:0;padding:0}li{display:grid;grid-template-columns:auto 1fr auto;gap:.8rem;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--line)}
 li .d{font-family:var(--mono);font-size:.8rem;color:var(--muted);white-space:nowrap}li .l{font-weight:600}li .l small{display:block;font-weight:500;color:var(--muted);font-size:.8rem}li .e{font-family:var(--mono);font-weight:700;white-space:nowrap}
 li .e button{margin-left:.5rem;border:0;background:none;color:var(--muted);font-size:1rem}
-.kat{display:grid;gap:.3rem}.kat div{display:grid;grid-template-columns:7rem 1fr 4.5rem;gap:.5rem;align-items:center;font-size:.9rem}.kat i{display:block;height:.5rem;background:var(--bad);border-radius:999px}.kat b{font-family:var(--mono);text-align:right}
+.kat{display:grid;gap:.3rem}.kat div{display:grid;grid-template-columns:7rem 1fr 4.5rem;gap:.5rem;align-items:center;font-size:.9rem}.kat i{display:block;height:.5rem;background:var(--bad);border-radius:999px}.kat b{font-family:var(--mono);text-align:right}.kb div{grid-template-columns:6.5rem 1fr 6rem}.kb b small{font-weight:500;color:var(--muted)}.kat .bar i{background:var(--good)}
 .st{color:var(--muted);font-size:.9rem;min-height:1.2rem}
 .wk{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;align-items:end;height:48px}.wk i{display:block;background:var(--bad);border-radius:3px 3px 0 0;height:var(--h)}.wk i.now{background:var(--good)}
 </style></head><body>
@@ -283,7 +312,9 @@ li .e button{margin-left:.5rem;border:0;background:none;color:var(--muted);font-
   <div class="posten" id="posten" hidden></div>
   <div class="g2"><button type="button" class="x" id="abbr">Abbrechen</button><button class="ok">Speichern</button></div>
 </form>
-<h2>Nach Kategorie</h2><div class="kat" id="kat"></div>
+<h2>Budget nach Kategorie</h2><div class="kat kb" id="kat"></div>
+<h2>Nach Produktart</h2><div class="kat" id="prod"></div>
+<h2>Preise</h2><ul id="preise"><li class="hint">Noch zu wenig Belege mit Posten.</li></ul>
 <h2>Letzte 8 Wochen</h2><div class="wk" id="wk"></div>
 <h2>Letzte Belege</h2><ul id="l"><li class="hint">Lade …</li></ul>
 <script>
@@ -296,7 +327,10 @@ function render(){ const m = D.monat; document.getElementById("m-eur").innerHTML
   const pct = Math.min(100, m.eur / D.budget * 100), soll = m.soll_bis_heute, s = m.eur <= soll ? "good" : m.eur <= D.budget ? "ok" : "bad";
   document.getElementById("m-bar").innerHTML = `<i data-s="${s}" style="width:${pct}%"></i>`; document.getElementById("m-bar").style.setProperty("--soll", (m.tag/m.tage*100)+"%");
   document.getElementById("m-hint").textContent = (m.eur <= soll ? `${eur(soll - m.eur)} unter Plan` : `${eur(m.eur - soll)} über Plan`) + ` · Soll bis heute ${eur(soll)}` + (m.prognose ? ` · Prognose ${eur(m.prognose)}` : "") + ` · Vormonat ${eur(D.vormonat.eur)}`;
-  const k = document.getElementById("kat"); const max = Math.max(1, ...m.kategorien.map(x=>x.eur)); k.innerHTML = m.kategorien.map(x=>`<div><span>${x.name}</span><i style="width:${x.eur/max*100}%"></i><b>${eur(x.eur)}</b></div>`).join("") || '<div class="hint">Noch keine Ausgaben in diesem Monat.</div>';
+  const k = document.getElementById("kat"); const bud = (m.budgets||[]).filter(b=>b.budget||b.eur);
+  k.innerHTML = bud.map(b=>{ const pct = b.budget ? Math.min(100, b.eur/b.budget*100) : 0; const st = !b.budget ? "" : b.eur > b.budget ? "bad" : b.eur > b.soll ? "ok" : "good"; return `<div><span>${b.name}</span><span class="bar" style="--soll:${b.budget?Math.min(100,b.soll/b.budget*100):100}%;margin:0;height:.5rem"><i data-s="${st}" style="width:${pct}%"></i></span><b>${eur(b.eur)}<small> /${Math.round(b.budget)}</small></b></div>`; }).join("");
+  const pd = document.getElementById("prod"); const pm = Math.max(1, ...(m.produkte||[]).map(x=>Math.abs(x.eur))); pd.innerHTML = (m.produkte||[]).slice(0,8).map(x=>`<div><span>${x.name}</span><i style="width:${Math.abs(x.eur)/pm*100}%"></i><b>${eur(x.eur)}</b></div>`).join("") || '<div class="hint">Noch keine Posten erfasst – Kassenzettel scannen.</div>';
+  const pl = document.getElementById("preise"); const pr = (D.preise||[]).filter(p=>p.spanne>0).slice(0,6); if(pr.length) pl.innerHTML = pr.map(p=>`<li><span class="d"></span><span class="l">${p.name}<small>${p.n}× · ${p.min_laden} ${eur(p.min)} … ${p.max_laden} ${eur(p.max)}</small></span><span class="e">${eur(p.letzter)}</span></li>`).join("");
   const w = document.getElementById("wk"); const wm = Math.max(1, ...D.wochen.map(x=>x.eur)); w.innerHTML = D.wochen.map((x,i)=>`<i class="${i===D.wochen.length-1?"now":""}" style="--h:${Math.max(4,x.eur/wm*100)}%" title="${x.von}: ${eur(x.eur)}"></i>`).join("");
   const sel = document.querySelector('select[name=kategorie]'); if(!sel.options.length) sel.innerHTML = D.kategorien.map(x=>`<option>${x}</option>`).join("");
   const ws = document.querySelector('select[name=wer]'); if(ws.options.length<=1 && D.personen) ws.innerHTML = '<option value="">Wer?</option>' + D.personen.map(x=>`<option ${x===wer()?"selected":""}>${x}</option>`).join("");
@@ -414,7 +448,11 @@ class H(http.server.SimpleHTTPRequestHandler):
                         EINKAUF.save(st); EINKAUF.export(st, os.path.join(ROOT, "einkauf.json"))
                 except Exception as ex:
                     print("beleg→liste:", ex, flush=True)
-                HAUSHALT.export(os.path.join(ROOT, "haushalt.json"))
+                out = HAUSHALT.export(os.path.join(ROOT, "haushalt.json"))
+                try:
+                    budget_meldungen(out)
+                except Exception as ex:
+                    print("budget push:", ex, flush=True)
                 return self._json({"ok": True, "eintrag": e, "reply": f"Gespeichert: {e['laden']} {e['summe']:.2f} €".replace(".", ",") + (f" · abgehakt: {', '.join(abgehakt)}" if abgehakt else "")})
             if rel == "/haushalt/del":
                 n = HAUSHALT.delete(form.get("id", "")); HAUSHALT.export(os.path.join(ROOT, "haushalt.json"))
