@@ -196,6 +196,14 @@ body[data-tab="einkauf"] .seite-haushalt, body[data-tab="mobil"] .seite-haushalt
 .hh ul { list-style: none; margin: 0; padding: 0; } .hh li { display: grid; grid-template-columns: 3.2em 1fr auto; gap: .8em; align-items: center; padding: .45em 0; border-bottom: 1px solid var(--line); }
 .hh li .d { font-family: var(--mono); font-size: .8em; color: var(--muted); } .hh li .l { font-weight: 600; } .hh li .l small { display: block; font-weight: 500; color: var(--muted); font-size: .8em; } .hh li .e { font-family: var(--mono); font-weight: 700; font-variant-numeric: tabular-nums; }
 .hh .leer { color: var(--muted); }
+/* Pendel */
+.pendel { display: grid; gap: .4em; }
+.pendel a { display: grid; grid-template-columns: 1.6em 1fr auto; gap: .8em; align-items: center; padding: .45em 0; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
+.pendel .pf { font-weight: 800; font-size: 1.2em; color: var(--bad); }
+.pendel .pn { font-weight: 600; } .pendel .pn small { display: block; color: var(--muted); font-weight: 500; font-size: .8em; }
+.pendel .pz { font-family: var(--mono); font-weight: 800; font-size: 1.5em; white-space: nowrap; text-align: right; }
+.pendel .pz small { display: block; font-size: .5em; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.pendel .pz[data-s="good"] small { color: var(--good); } .pendel .pz[data-s="ok"] small { color: var(--warn); } .pendel .pz[data-s="bad"] small { color: var(--bad); } .pendel .pz[data-s="bad"] { color: var(--bad); }
 /* Mobil */
 .mobil { display: grid; grid-template-columns: 1.25fr 1fr; gap: 2.4em; min-height: calc(100vh - 8em); }
 .mobil h2 { margin: 0 0 .9em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
@@ -316,6 +324,7 @@ body[data-tab="einkauf"] .seite-haushalt, body[data-tab="mobil"] .seite-haushalt
   .fz .n small { display: inline; margin-left: .4em; }
   .fz .n small .ort, .fz .st small.s2, .fz .st small.akku { display: none; }
   .fz .n, .fz .st { white-space: nowrap; }
+  .pendel a { padding: .25em 0; } .pendel .pz { font-size: 1.25em; }
   .liste li { font-size: 1.05em; padding: .3em 0; }
   .ek-bar button { padding: .45em .8em; font-size: .9em; }
   .tabs { bottom: .4em; }
@@ -474,7 +483,9 @@ body[data-tab="einkauf"] .seite-haushalt, body[data-tab="mobil"] .seite-haushalt
       <div class="kosten" id="kosten" hidden></div>
     </div>
     <div>
-      <h2>Unsere Buchungen <span>FRANKLIN Mobil</span></h2>
+      <h2>Schule <span id="pendel-stand"></span></h2>
+      <div class="pendel" id="pendel"><span class="leer">Lade …</span></div>
+      <h2 style="margin-top:1.6em">Unsere Buchungen <span>FRANKLIN Mobil</span></h2>
       <ul class="buch" id="buch"><li><span class="leer">Lade …</span></li></ul>
       <h2 style="margin-top:1.6em">Fahrzeuge in FRANKLIN <span id="fz-n"></span></h2>
       <ul class="fz" id="fz"><li class="leer">Lade …</li></ul>
@@ -966,6 +977,14 @@ function renderMobil(m) {
     const link = (m.stops || {})[st];
     halte.insertAdjacentHTML("beforeend", `<div><h3>${link ? `<a href="${link}" target="_blank" rel="noopener">${st} ↗</a>` : st} <span>${st === "Pl. der Freundschaft" ? "Linie 5 · Bus" : "Linie 16 · Bus"}</span></h3><div class="tafel-ab">${html}</div></div>`);
   }
+  const pd = document.getElementById("pendel"), P = m.pendel;
+  if (P && P.hin && P.rueck) {
+    const row = (pf, name, sub, r, link) => { const st = r.stau_min == null ? "" : r.stau_min <= 3 ? "good" : r.stau_min <= 10 ? "ok" : "bad";
+      const lab = r.stau_min == null ? "ohne Verkehr" : r.stau_min <= 3 ? "frei" : `+${r.stau_min} min Stau`;
+      return `<a href="${link}" target="_blank" rel="noopener"><span class="pf">${pf}</span><span class="pn">${name}<small>${sub} · ${r.km} km${r.stau_min != null ? " · normal " + r.frei_min + " min" : ""}</small></span><span class="pz" data-s="${st}">${r.min} min<small>${lab}</small></span></a>`; };
+    pd.innerHTML = row("→", P.ziel, "von zu Hause", P.hin, P.hin_link) + row("←", "Nach Hause", "von " + P.ziel, P.rueck, P.rueck_link);
+    document.getElementById("pendel-stand").textContent = (P.hin.quelle || "") + " · " + new Date(P.at).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) + (P.fehler ? " · Fehler" : "");
+  } else pd.innerHTML = `<span class="leer">${P && P.fehler ? "Fahrzeit nicht abrufbar: " + P.fehler : "Keine Fahrzeitdaten"}</span>`;
   const fz = (m.mobil && m.mobil.fahrzeuge) || [], ul = document.getElementById("fz"); ul.innerHTML = "";
   document.getElementById("fz-n").textContent = fz.length ? `${fz.filter(f => f.frei).length} von ${fz.length} frei` : "";
   if (!fz.length) ul.innerHTML = '<li class="leer">Keine Fahrzeugdaten</li>';

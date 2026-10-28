@@ -151,6 +151,59 @@ def buchungen(fz):
 KOSTEN = []
 ROH = []
 
+# ---------- Pendelstrecke mit Verkehrslage ----------
+HOME = tuple(float(x) for x in os.environ.get("PENDEL_VON", "49.5203,8.5339").split(","))          # Abraham-Lincoln-Allee 48
+ZIEL = tuple(float(x) for x in os.environ.get("PENDEL_NACH", "49.7547,8.4949").split(","))         # Gymnasium Gernsheim, Theodor-Heuss-Straße
+ZIEL_NAME = os.environ.get("PENDEL_NAME", "Gymnasium Gernsheim")
+PENDEL_FILE = os.path.join(os.path.dirname(TOKEN_FILE), "pendel.json")
+
+def _route_tomtom(a, b, key):
+    u = f"https://api.tomtom.com/routing/1/calculateRoute/{a[0]},{a[1]}:{b[0]},{b[1]}/json?key={key}&traffic=true&travelMode=car&routeType=fastest&computeTravelTimeFor=all"
+    with urllib.request.urlopen(u, timeout=20) as r:
+        j = json.load(r)
+    su = j["routes"][0]["summary"]
+    frei = su.get("noTrafficTravelTimeInSeconds") or su["travelTimeInSeconds"] - su.get("trafficDelayInSeconds", 0)
+    return {"min": round(su["travelTimeInSeconds"] / 60), "frei_min": round(frei / 60), "stau_min": round(su.get("trafficDelayInSeconds", 0) / 60), "km": round(su["lengthInMeters"] / 1000, 1), "quelle": "TomTom · live"}
+
+def _route_osrm(a, b):
+    u = f"https://router.project-osrm.org/route/v1/driving/{a[1]},{a[0]};{b[1]},{b[0]}?overview=false"
+    with urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "FranklinTafel/1.0"}), timeout=20) as r:
+        j = json.load(r)
+    ro = j["routes"][0]
+    return {"min": round(ro["duration"] / 60), "frei_min": round(ro["duration"] / 60), "stau_min": None, "km": round(ro["distance"] / 1000, 1), "quelle": "OSRM · ohne Verkehr"}
+
+def pendel():
+    """Fahrzeit hin und zurück. TomTom (TOMTOM_API_KEY, kostenlos bis 2500 Abfragen/Tag) mit Verkehrslage, sonst OSRM ohne Verkehr.
+    Abruf alle 5 min zu Pendelzeiten (Mo–Fr 5:30–9:30 und 12–19 Uhr), sonst alle 30 min; dazwischen aus dem Cache."""
+    now = dt.datetime.now()
+    try:
+        cache = json.load(open(PENDEL_FILE))
+    except Exception:
+        cache = None
+    wt = now.weekday() < 5; h = now.hour + now.minute / 60
+    stoss = wt and (5.5 <= h <= 9.5 or 12 <= h <= 19)
+    frisch = 300 if stoss else 1800
+    if cache and (now - dt.datetime.fromisoformat(cache["at"])).total_seconds() < frisch:
+        return cache
+    key = os.environ.get("TOMTOM_API_KEY", "").strip()
+    out = {"at": now.isoformat(timespec="minutes"), "ziel": ZIEL_NAME, "stoss": stoss,
+           "hin_link": f"https://www.google.com/maps/dir/?api=1&origin={HOME[0]},{HOME[1]}&destination={ZIEL[0]},{ZIEL[1]}&travelmode=driving",
+           "rueck_link": f"https://www.google.com/maps/dir/?api=1&origin={ZIEL[0]},{ZIEL[1]}&destination={HOME[0]},{HOME[1]}&travelmode=driving"}
+    try:
+        if key:
+            out["hin"] = _route_tomtom(HOME, ZIEL, key); out["rueck"] = _route_tomtom(ZIEL, HOME, key)
+        else:
+            out["hin"] = _route_osrm(HOME, ZIEL); out["rueck"] = _route_osrm(ZIEL, HOME)
+    except Exception as e:
+        if cache:
+            cache["fehler"] = str(e)[:120]; return cache
+        out["fehler"] = str(e)[:120]
+    try:
+        os.makedirs(os.path.dirname(PENDEL_FILE), exist_ok=True); json.dump(out, open(PENDEL_FILE, "w"))
+    except Exception:
+        pass
+    return out
+
 def main():
     outp = sys.argv[1] if len(sys.argv) > 1 else "mobil.json"
     errors = []
@@ -161,6 +214,10 @@ def main():
         res["departures"] = E.fetch_departures(limit=60)
     except Exception as e:
         errors.append(f"Abfahrten: {e}")
+    try:
+        res["pendel"] = pendel()
+    except Exception as e:
+        errors.append(f"Pendel: {e}")
     fz = []
     try:
         fz = fahrzeuge(); res["mobil"]["fahrzeuge"] = fz
