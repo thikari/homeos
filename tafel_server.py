@@ -143,6 +143,18 @@ def gesprochen_zerlegen(text):
             print("sprache/ki:", e, flush=True)
     return EINKAUF.zerlege_gesprochen(t)
 
+LOGIN_PAGE = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>homeOS</title>
+<link rel="icon" href="icon.svg"><link rel="apple-touch-icon" href="icon-180.png">
+<style>:root{--fg:#0f2a4a;--muted:#5f7691;--line:#d9e3ee;--bad:#2a6fdb}body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:-apple-system,"Manrope",system-ui,sans-serif;color:var(--fg);background:#fff}
+form{width:min(22em,90vw);display:grid;gap:.8em}h1{margin:0 0 .2em;font-size:1.1rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+input{font:inherit;font-size:1.6rem;letter-spacing:.3em;text-align:center;padding:.6em;border:1.5px solid var(--line);border-radius:14px}button{font:inherit;font-weight:700;font-size:1.05rem;padding:.8em;border:0;border-radius:14px;background:var(--fg);color:#fff}
+p{color:var(--bad);font-size:.9rem;min-height:1.2em;margin:0}</style></head><body>
+<form method="post" action="/login"><h1>homeOS</h1><input name="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" autofocus required><button>Öffnen</button><p>__MSG__</p></form>
+</body></html>"""
+
+# ---------------- Push-Benachrichtigungen (Web Push) ----------------
+PUSH_FILE = os.path.join(os.path.dirname(os.environ.get("EINKAUF_STATE", os.path.join(HERE, "x"))), "push.json")
+
 def _push_store_load():
     if EINKAUF.SPEICHER.aktiv():
         try:
