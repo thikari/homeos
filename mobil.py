@@ -173,14 +173,23 @@ def _route_osrm(a, b):
     return {"min": round(ro["duration"] / 60), "frei_min": round(ro["duration"] / 60), "stau_min": None, "km": round(ro["distance"] / 1000, 1), "quelle": "OSRM · ohne Verkehr"}
 
 AUTOBAHNEN = [x.strip() for x in os.environ.get("PENDEL_AUTOBAHNEN", "A6,A67,A659").split(",") if x.strip()]
+RICHTUNG_HIN = [x.strip().lower() for x in os.environ.get("PENDEL_RICHTUNG_HIN", "Darmstadt,Heilbronn,Weinheim,Frankfurt").split(",")]
+RICHTUNG_RUECK = [x.strip().lower() for x in os.environ.get("PENDEL_RICHTUNG_RUECK", "Mannheim,Kaiserslautern,Viernheim").split(",")]
 
 def _bbox():
     la = sorted([HOME[0], ZIEL[0]]); lo = sorted([HOME[1], ZIEL[1]])
-    return la[0] - 0.06, la[1] + 0.06, lo[0] - 0.10, lo[1] + 0.10
+    return la[0] - 0.03, la[1] + 0.03, lo[0] - 0.08, lo[1] + 0.08
+
+def _richtung(subtitle):
+    t = (subtitle or "").lower(); ziel = t.split("->")[-1] if "->" in t else t
+    if any(k in ziel for k in RICHTUNG_HIN): return "hin"
+    if any(k in ziel for k in RICHTUNG_RUECK): return "rueck"
+    return ""
 
 def verkehrswarnungen():
     """Aktuelle Stau-/Sperrmeldungen der Autobahn GmbH (autobahn.api.bund.de, ohne Schlüssel) für die Autobahnen
-    der Pendelstrecke, gefiltert auf das Rechteck um Start und Ziel. Rückgabe: Liste {strasse, titel, text, gesperrt, seit}."""
+    der Pendelstrecke, gefiltert auf das Rechteck um Start und Ziel (Ereignis-Ausdehnung `extent` muss es schneiden).
+    Rückgabe: Liste {strasse, art, titel, richtung (hin/rueck), ort, ereignis, verlust_min, gesperrt, seit}."""
     la0, la1, lo0, lo1 = _bbox()
     out = []
     for ab in AUTOBAHNEN:
@@ -192,19 +201,26 @@ def verkehrswarnungen():
             except Exception as e:
                 print(f"autobahn {ab}/{dienst}: {e}", file=sys.stderr); continue
             for w in j.get(dienst) or []:
-                try:
-                    c = w.get("coordinate") or {}
-                    lat, lon = float(c.get("lat")), float(c.get("long"))
-                except Exception:
-                    continue
-                if not (la0 <= lat <= la1 and lo0 <= lon <= lo1):
-                    continue
                 if w.get("future"):
                     continue
-                desc = [d.strip() for d in (w.get("description") or []) if d and d.strip() and not d.startswith("Beginn:") and not d.startswith("Ende:")]
-                out.append({"strasse": ab, "art": dienst, "titel": (w.get("title") or "").strip(), "text": (w.get("subtitle") or (desc[0] if desc else "") or "").strip()[:140],
-                            "gesperrt": str(w.get("isBlocked")).lower() == "true", "seit": w.get("startTimestamp"), "lat": lat, "lon": lon})
-    out.sort(key=lambda w: (not w["gesperrt"], w["art"] != "warning", w["strasse"]))
+                try:
+                    ext = [float(x) for x in (w.get("extent") or "").split(",")]
+                    if len(ext) != 4:
+                        c = w.get("coordinate") or {}; ext = [float(c["lat"]), float(c["long"])] * 2
+                    ela0, ela1 = sorted([ext[0], ext[2]]); elo0, elo1 = sorted([ext[1], ext[3]])
+                except Exception:
+                    continue
+                if ela1 < la0 or ela0 > la1 or elo1 < lo0 or elo0 > lo1:
+                    continue
+                desc = [d.strip() for d in (w.get("description") or []) if d and d.strip()]
+                ereignis = next((d[2:] for d in desc if d.startswith("- ") and "geschwindigkeit" not in d.lower() and "reisezeit" not in d.lower()), "")
+                ort = next((d.split(",", 1)[1].strip() for d in desc if "zwischen" in d and "," in d), "")
+                try: verlust = int(w.get("delayTimeValue"))
+                except Exception: verlust = None
+                out.append({"strasse": ab, "art": dienst, "titel": (w.get("title") or "").strip(), "richtung": _richtung(w.get("subtitle")),
+                            "ort": ort[:110], "ereignis": (ereignis or (desc[0] if desc else ""))[:80], "verlust_min": verlust,
+                            "gesperrt": str(w.get("isBlocked")).lower() == "true", "seit": w.get("startTimestamp")})
+    out.sort(key=lambda w: (not w["gesperrt"], -(w["verlust_min"] or 0), w["strasse"]))
     return out
 
 def pendel():

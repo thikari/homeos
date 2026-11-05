@@ -209,7 +209,7 @@ body[data-tab="einkauf"] .seite-haushalt, body[data-tab="mobil"] .seite-haushalt
 .pendel .pn { font-weight: 600; } .pendel .pn small { display: block; color: var(--muted); font-weight: 500; font-size: .8em; }
 .pendel .warn { font-size: .9em; padding: .3em 0; border-bottom: 1px solid var(--line); color: var(--fg); line-height: 1.3; }
 .pendel .warn b { color: var(--warn); margin-right: .2em; } .pendel .warn.sperre b { color: var(--bad); } .pendel .warn.frei { color: var(--muted); }
-.pendel .warn span { color: var(--muted); }
+.pendel .warn span { color: var(--muted); } .pendel .warn em { font-style: normal; font-size: .85em; color: var(--muted); margin-right: .2em; }
 .pendel .pz { font-family: var(--mono); font-weight: 800; font-size: 1.5em; white-space: nowrap; text-align: right; }
 .pendel .pz small { display: block; font-size: .5em; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 .pendel .pz[data-s="good"] small { color: var(--good); } .pendel .pz[data-s="ok"] small { color: var(--warn); } .pendel .pz[data-s="bad"] small { color: var(--bad); } .pendel .pz[data-s="bad"] { color: var(--bad); }
@@ -997,7 +997,9 @@ function renderMobil(m) {
     pd.innerHTML = row("→", P.ziel, "von zu Hause", P.hin, P.hin_link) + row("←", "Nach Hause", "von " + P.ziel, P.rueck, P.rueck_link);
     const WN = (P.warnungen || []).slice(0, window.innerHeight < 680 ? 2 : 4);
     const esc = (t) => String(t || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-    if (WN.length) pd.insertAdjacentHTML("beforeend", WN.map(w => `<div class="warn ${w.gesperrt ? "sperre" : ""}"><b>${w.gesperrt ? "⛔" : "⚠"} ${esc(w.strasse)}</b> ${esc(w.titel)}${w.text && w.text !== w.titel ? " · <span>" + esc(w.text) + "</span>" : ""}</div>`).join(""));
+    if (WN.length) pd.insertAdjacentHTML("beforeend", WN.map(w => { const ri = w.richtung === "hin" ? "→ hin" : w.richtung === "rueck" ? "← zurück" : "";
+      const was = [w.ereignis, w.verlust_min ? `+${w.verlust_min} min` : ""].filter(Boolean).join(", ");
+      return `<div class="warn ${w.gesperrt ? "sperre" : ""}"><b>${w.gesperrt ? "⛔" : "⚠"} ${esc(w.strasse)}</b>${ri ? ` <em>${ri}</em>` : ""} ${esc(was || w.titel)}${w.ort ? " · <span>" + esc(w.ort) + "</span>" : ""}</div>`; }).join(""));
     else if (P.warnungen) pd.insertAdjacentHTML("beforeend", `<div class="warn frei">✓ Keine Meldungen auf ${(P.autobahnen || ["A6", "A67", "A659"]).join(", ")}</div>`);
     document.getElementById("pendel-stand").textContent = (P.hin.quelle || "") + " · " + new Date(P.at).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) + (P.fehler ? " · Fehler" : "");
   } else pd.innerHTML = `<span class="leer">${P && P.fehler ? "Fahrzeit nicht abrufbar: " + P.fehler : "Keine Fahrzeitdaten"}</span>`;
