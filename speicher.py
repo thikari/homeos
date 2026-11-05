@@ -116,9 +116,19 @@ def archiviere_mobil(mobil, buchungen_roh=None):
     n = {}
     try:
         at = mobil.get("updated")
-        for f in (mobil.get("mobil") or {}).get("fahrzeuge") or []:
-            insert("mobil_fahrzeuge", {"at": at, "id": f["id"], "name": f.get("name"), "kennung": f.get("kennung"), "frei": f.get("frei"), "akku": f.get("akku")})
-        n["fahrzeuge"] = len((mobil.get("mobil") or {}).get("fahrzeuge") or [])
+        # Fahrzeugstatus nur alle MOBIL_ARCHIV_MIN (15) Minuten archivieren – sonst ~6.000 Zeilen/Tag
+        zu_frueh = False
+        try:
+            last = db()["mobil_fahrzeuge"].find_one(sort=[("at", -1)], projection={"at": 1})
+            if last and at and (dt.datetime.fromisoformat(at) - dt.datetime.fromisoformat(last["at"])).total_seconds() < int(os.environ.get("MOBIL_ARCHIV_MIN", "15")) * 60:
+                zu_frueh = True
+        except Exception:
+            pass
+        fz = (mobil.get("mobil") or {}).get("fahrzeuge") or []
+        if not zu_frueh:
+            for f in fz:
+                insert("mobil_fahrzeuge", {"at": at, "id": f["id"], "name": f.get("name"), "kennung": f.get("kennung"), "frei": f.get("frei"), "akku": f.get("akku")})
+        n["fahrzeuge"] = 0 if zu_frueh else len(fz)
     except Exception as e:
         print("mobil_fahrzeuge:", e, file=sys.stderr)
     try:

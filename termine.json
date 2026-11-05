@@ -1,8 +1,47 @@
 [
-  {"date": "2026-10-17", "time": "06:00", "title": "Zählerstand lesen – Grundlast"},
-  {"date": "2026-10-18", "time": null, "title": "Mails an Gehann und enocoo"},
-  {"date": "2026-10-19", "time": "23:00", "title": "Grundlast-Woche: nur Kühlschrank + Router"},
-  {"date": "2026-10-24", "time": null, "title": "Auswertung Standby-Geräte"},
-  {"date": "2026-10-25", "time": null, "title": "Sparduschkopf montieren"},
-  {"date": "2026-11-01", "time": null, "title": "enocoo-Export ziehen, Thermostate einstellen"}
+  {
+    "date": "2026-10-17",
+    "time": "06:00",
+    "title": "Zählerstand lesen – Grundlast"
+  },
+  {
+    "date": "2026-10-18",
+    "time": null,
+    "title": "Mails an Gehann und enocoo"
+  },
+  {
+    "date": "2026-10-19",
+    "time": "23:00",
+    "title": "Grundlast-Woche: nur Kühlschrank + Router"
+  },
+  {
+    "date": "2026-10-24",
+    "time": null,
+    "title": "Auswertung Standby-Geräte"
+  },
+  {
+    "date": "2026-10-25",
+    "time": null,
+    "title": "Sparduschkopf montieren"
+  },
+  {
+    "date": "2026-11-01",
+    "time": null,
+    "title": "enocoo-Export ziehen, Thermostate einstellen"
+  },
+  {
+    "date": "2026-11-20",
+    "time": null,
+    "title": "Belegeinsicht bei Gehann anfragen (Sonderhonorar, Brunnen/PV)"
+  },
+  {
+    "date": "2026-12-04",
+    "time": null,
+    "title": "Frist Anfechtung Abrechnung 2025 (AG Mannheim)"
+  },
+  {
+    "date": "2027-02-01",
+    "time": null,
+    "title": "Steuer 2026: § 35a aus Abrechnung 2024 + 2025 (213,39 €) ansetzen"
+  }
 ]

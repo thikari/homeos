@@ -1,0 +1,20 @@
+{
+  "_": "Zahlen aus der Jahresabrechnung der WEG (Gehann). Von Hand pflegen; wird auf der Energie-Tafel als Hausgeld-Kasten gezeigt.",
+  "jahr": 2025,
+  "hausgeld_ist_monat": 663,
+  "hausgeld_soll_monat": 592,
+  "hausgeld_neu_monat": 713,
+  "hausgeld_neu_ab": "2027-01",
+  "nachzahlung_eur": 515.79,
+  "nachzahlung_tg_eur": -11.29,
+  "beschluss": "2026-11-04",
+  "anfechtung_bis": "2026-12-04",
+  "steuer_35a_eur": 213.39,
+  "posten_monat": {
+    "Erbpacht": 224,
+    "Energie (enocoo)": 227,
+    "WEG-Overhead": 163,
+    "Rücklage": 33,
+    "Sonstiges": 16
+  }
+}

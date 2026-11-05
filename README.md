@@ -131,3 +131,9 @@ Posten werden einer Produktart zugeordnet (Obst & Gemüse, Milch & Käse, Fleisc
 ## Pendelstrecke (Tab Mobil · „Schule")
 
 Fahrzeit Franklin ⇄ Gymnasium Gernsheim hin und zurück mit aktueller Verkehrslage. `TOMTOM_API_KEY` (developer.tomtom.com, kostenlos bis 2 500 Abfragen/Tag) → Live-Verkehr, Stauminuten, Normalzeit; ohne Schlüssel OSRM ohne Verkehr. Abruf alle 5 min zu Pendelzeiten (Mo–Fr 5:30–9:30, 12–19 Uhr), sonst alle 30 min. Antippen öffnet die Route in Google Maps. Start/Ziel über `PENDEL_VON`, `PENDEL_NACH` (lat,lon), `PENDEL_NAME`.
+
+## Hausgeld-Kasten (Energie) und Verkehrswarnungen (Mobil)
+
+- `weg.json`: Zahlen aus der WEG-Jahresabrechnung (Hausgeld Ist/Soll/neu, Nachzahlung, Anfechtungsfrist, § 35a). Von Hand pflegen; erscheint unter dem Monatsbudget im Energie-Tab, die Anfechtungsfrist zählt die Tage herunter.
+- Verkehrswarnungen: Stau- und Sperrmeldungen der Autobahn GmbH (`verkehr.autobahn.de`, ohne Schlüssel) für `PENDEL_AUTOBAHNEN` (Standard `A6,A67,A659`), gefiltert auf das Rechteck um Start und Ziel der Pendelstrecke; im Schule-Kasten unter den Fahrzeiten.
+- `MOBIL_ARCHIV_MIN` (Standard 15): Fahrzeugstatus wird nur alle 15 Minuten in `mobil_fahrzeuge` archiviert.

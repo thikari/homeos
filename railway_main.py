@@ -8,6 +8,8 @@ WWW = os.path.join(HERE, "www")
 os.makedirs(WWW, exist_ok=True)
 shutil.copy(os.path.join(HERE, "index.html"), os.path.join(WWW, "index.html"))
 shutil.copy(os.path.join(HERE, "einkauf.js"), os.path.join(WWW, "einkauf.js"))
+if os.path.exists(os.path.join(HERE, "weg.json")):
+    shutil.copy(os.path.join(HERE, "weg.json"), os.path.join(WWW, "weg.json"))
 for f in os.listdir(os.path.join(HERE, "static")):
     shutil.copy(os.path.join(HERE, "static", f), os.path.join(WWW, f))
 INTERVAL = int(os.environ.get("FETCH_INTERVAL", "300"))

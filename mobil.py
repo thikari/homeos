@@ -172,6 +172,41 @@ def _route_osrm(a, b):
     ro = j["routes"][0]
     return {"min": round(ro["duration"] / 60), "frei_min": round(ro["duration"] / 60), "stau_min": None, "km": round(ro["distance"] / 1000, 1), "quelle": "OSRM · ohne Verkehr"}
 
+AUTOBAHNEN = [x.strip() for x in os.environ.get("PENDEL_AUTOBAHNEN", "A6,A67,A659").split(",") if x.strip()]
+
+def _bbox():
+    la = sorted([HOME[0], ZIEL[0]]); lo = sorted([HOME[1], ZIEL[1]])
+    return la[0] - 0.06, la[1] + 0.06, lo[0] - 0.10, lo[1] + 0.10
+
+def verkehrswarnungen():
+    """Aktuelle Stau-/Sperrmeldungen der Autobahn GmbH (autobahn.api.bund.de, ohne Schlüssel) für die Autobahnen
+    der Pendelstrecke, gefiltert auf das Rechteck um Start und Ziel. Rückgabe: Liste {strasse, titel, text, gesperrt, seit}."""
+    la0, la1, lo0, lo1 = _bbox()
+    out = []
+    for ab in AUTOBAHNEN:
+        for dienst in ("warning", "closure"):
+            try:
+                req = urllib.request.Request(f"https://verkehr.autobahn.de/o/autobahn/{ab}/services/{dienst}", headers={"User-Agent": "FranklinTafel/1.0", "Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    j = json.load(r)
+            except Exception as e:
+                print(f"autobahn {ab}/{dienst}: {e}", file=sys.stderr); continue
+            for w in j.get(dienst) or []:
+                try:
+                    c = w.get("coordinate") or {}
+                    lat, lon = float(c.get("lat")), float(c.get("long"))
+                except Exception:
+                    continue
+                if not (la0 <= lat <= la1 and lo0 <= lon <= lo1):
+                    continue
+                if w.get("future"):
+                    continue
+                desc = [d.strip() for d in (w.get("description") or []) if d and d.strip() and not d.startswith("Beginn:") and not d.startswith("Ende:")]
+                out.append({"strasse": ab, "art": dienst, "titel": (w.get("title") or "").strip(), "text": (w.get("subtitle") or (desc[0] if desc else "") or "").strip()[:140],
+                            "gesperrt": str(w.get("isBlocked")).lower() == "true", "seit": w.get("startTimestamp"), "lat": lat, "lon": lon})
+    out.sort(key=lambda w: (not w["gesperrt"], w["art"] != "warning", w["strasse"]))
+    return out
+
 def pendel():
     """Fahrzeit hin und zurück. TomTom (TOMTOM_API_KEY, kostenlos bis 2500 Abfragen/Tag) mit Verkehrslage, sonst OSRM ohne Verkehr.
     Abruf alle 5 min zu Pendelzeiten (Mo–Fr 5:30–9:30 und 12–19 Uhr), sonst alle 30 min; dazwischen aus dem Cache."""
@@ -186,7 +221,7 @@ def pendel():
     if cache and (now - dt.datetime.fromisoformat(cache["at"])).total_seconds() < frisch:
         return cache
     key = os.environ.get("TOMTOM_API_KEY", "").strip()
-    out = {"at": now.isoformat(timespec="minutes"), "ziel": ZIEL_NAME, "stoss": stoss,
+    out = {"at": now.isoformat(timespec="minutes"), "ziel": ZIEL_NAME, "stoss": stoss, "autobahnen": AUTOBAHNEN,
            "hin_link": f"https://www.google.com/maps/dir/?api=1&origin={HOME[0]},{HOME[1]}&destination={ZIEL[0]},{ZIEL[1]}&travelmode=driving",
            "rueck_link": f"https://www.google.com/maps/dir/?api=1&origin={ZIEL[0]},{ZIEL[1]}&destination={HOME[0]},{HOME[1]}&travelmode=driving"}
     try:
@@ -198,6 +233,10 @@ def pendel():
         if cache:
             cache["fehler"] = str(e)[:120]; return cache
         out["fehler"] = str(e)[:120]
+    try:
+        out["warnungen"] = verkehrswarnungen()
+    except Exception as e:
+        out["warnungen"] = (cache or {}).get("warnungen") or []; out["warnungen_fehler"] = str(e)[:120]
     try:
         os.makedirs(os.path.dirname(PENDEL_FILE), exist_ok=True); json.dump(out, open(PENDEL_FILE, "w"))
     except Exception:

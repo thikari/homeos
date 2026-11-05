@@ -136,6 +136,12 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .tage.h24 .labels span:nth-child(6n+1) { visibility: visible; }
 .tage .kopf b { color: var(--fg); font-weight: 600; }
 .tage + .tage { margin-top: .6em; }
+.weg { margin-top: .8em; padding-top: .6em; border-top: 1px solid var(--line); font-size: .82em; display: grid; grid-template-columns: 1fr 1fr; gap: .25em .8em; }
+.weg h3 { grid-column: 1 / -1; margin: 0 0 .1em; font-size: .78em; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.weg span { display: flex; justify-content: space-between; gap: .5em; color: var(--muted); white-space: nowrap; }
+.weg span b { color: var(--fg); font-family: var(--mono); font-weight: 600; }
+.weg span.warn b { color: var(--bad); }
+.weg span.full { grid-column: 1 / -1; }
 .euro { display: flex; align-items: baseline; gap: .6em; margin-bottom: .9em; }
 .euro .big { font-weight: 800; font-size: 1.5em; letter-spacing: -.02em; line-height: 1; white-space: nowrap; }
 .euro .sub { color: var(--muted); font-size: .85em; }
@@ -201,6 +207,9 @@ body[data-tab="einkauf"] .seite-haushalt, body[data-tab="mobil"] .seite-haushalt
 .pendel a { display: grid; grid-template-columns: 1.6em 1fr auto; gap: .8em; align-items: center; padding: .45em 0; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
 .pendel .pf { font-weight: 800; font-size: 1.2em; color: var(--bad); }
 .pendel .pn { font-weight: 600; } .pendel .pn small { display: block; color: var(--muted); font-weight: 500; font-size: .8em; }
+.pendel .warn { font-size: .9em; padding: .3em 0; border-bottom: 1px solid var(--line); color: var(--fg); line-height: 1.3; }
+.pendel .warn b { color: var(--warn); margin-right: .2em; } .pendel .warn.sperre b { color: var(--bad); } .pendel .warn.frei { color: var(--muted); }
+.pendel .warn span { color: var(--muted); }
 .pendel .pz { font-family: var(--mono); font-weight: 800; font-size: 1.5em; white-space: nowrap; text-align: right; }
 .pendel .pz small { display: block; font-size: .5em; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 .pendel .pz[data-s="good"] small { color: var(--good); } .pendel .pz[data-s="ok"] small { color: var(--warn); } .pendel .pz[data-s="bad"] small { color: var(--bad); } .pendel .pz[data-s="bad"] { color: var(--bad); }
@@ -325,6 +334,8 @@ body[data-tab="einkauf"] .seite-haushalt, body[data-tab="mobil"] .seite-haushalt
   .fz .n small .ort, .fz .st small.s2, .fz .st small.akku { display: none; }
   .fz .n, .fz .st { white-space: nowrap; }
   .pendel a { padding: .25em 0; } .pendel .pz { font-size: 1.25em; }
+  .weg { margin-top: .4em; padding-top: .35em; gap: .1em .6em; } .weg span.full:last-child { display: none; }
+  .pendel .warn { font-size: .85em; padding: .2em 0; }
   .liste li { font-size: 1.05em; padding: .3em 0; }
   .ek-bar button { padding: .45em .8em; font-size: .9em; }
   .tabs { bottom: .4em; }
@@ -422,6 +433,7 @@ body[data-tab="einkauf"] .seite-haushalt, body[data-tab="mobil"] .seite-haushalt
       <div class="row"><div class="n">Kaltwasser</div><div class="bar"><i id="b-kalt"></i><b id="s-kalt"></b></div><div class="z" id="z-kalt"></div></div>
       <div class="row"><div class="n">Warmwasser</div><div class="bar"><i id="b-warm"></i><b id="s-warm"></b></div><div class="z" id="z-warm"></div></div>
       <div class="row"><div class="n">Wärme</div><div class="bar"><i id="b-waerme"></i><b id="s-waerme"></b></div><div class="z" id="z-waerme"></div></div>
+      <div class="weg" id="weg" hidden></div>
     </div>
     <div>
       <h2>Heute <span id="heute-datum"></span></h2>
@@ -983,6 +995,10 @@ function renderMobil(m) {
       const lab = r.stau_min == null ? "ohne Verkehr" : r.stau_min <= 3 ? "frei" : `+${r.stau_min} min Stau`;
       return `<a href="${link}" target="_blank" rel="noopener"><span class="pf">${pf}</span><span class="pn">${name}<small>${sub} · ${r.km} km${r.stau_min != null ? " · normal " + r.frei_min + " min" : ""}</small></span><span class="pz" data-s="${st}">${r.min} min<small>${lab}</small></span></a>`; };
     pd.innerHTML = row("→", P.ziel, "von zu Hause", P.hin, P.hin_link) + row("←", "Nach Hause", "von " + P.ziel, P.rueck, P.rueck_link);
+    const WN = (P.warnungen || []).slice(0, window.innerHeight < 680 ? 2 : 4);
+    const esc = (t) => String(t || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    if (WN.length) pd.insertAdjacentHTML("beforeend", WN.map(w => `<div class="warn ${w.gesperrt ? "sperre" : ""}"><b>${w.gesperrt ? "⛔" : "⚠"} ${esc(w.strasse)}</b> ${esc(w.titel)}${w.text && w.text !== w.titel ? " · <span>" + esc(w.text) + "</span>" : ""}</div>`).join(""));
+    else if (P.warnungen) pd.insertAdjacentHTML("beforeend", `<div class="warn frei">✓ Keine Meldungen auf ${(P.autobahnen || ["A6", "A67", "A659"]).join(", ")}</div>`);
     document.getElementById("pendel-stand").textContent = (P.hin.quelle || "") + " · " + new Date(P.at).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) + (P.fehler ? " · Fehler" : "");
   } else pd.innerHTML = `<span class="leer">${P && P.fehler ? "Fahrzeit nicht abrufbar: " + P.fehler : "Keine Fahrzeitdaten"}</span>`;
   const fz = (m.mobil && m.mobil.fahrzeuge) || [], ul = document.getElementById("fz"); ul.innerHTML = "";
@@ -1107,6 +1123,24 @@ async function laden() {
   render(DATA);
 }
 uhr(); laden();
+// Hausgeld / WEG-Abrechnung (weg.json, von Hand gepflegt)
+async function ladenWeg() {
+  let W = null; try { const r = await fetch("weg.json", { cache: "no-store" }); if (r.ok) W = await r.json(); } catch (e) {}
+  const el = document.getElementById("weg"); if (!el) return;
+  if (!W || W.hausgeld_ist_monat == null) { el.hidden = true; return; }
+  const eur = (v, d = 0) => v.toLocaleString("de-DE", { minimumFractionDigits: d, maximumFractionDigits: d }) + " €";
+  const heute = new Date().toISOString().slice(0, 10), tage = W.anfechtung_bis ? Math.ceil((new Date(W.anfechtung_bis) - new Date(heute)) / 864e5) : null;
+  const parts = [`<h3>Hausgeld · Abrechnung ${W.jahr}</h3>`,
+    `<span>Ist ${W.jahr}<b>${eur(W.hausgeld_ist_monat)}/M</b></span>`,
+    `<span>ab ${W.hausgeld_neu_ab ? W.hausgeld_neu_ab.slice(0, 4) : "neu"}<b>${eur(W.hausgeld_neu_monat)}/M</b></span>`,
+    `<span class="${W.nachzahlung_eur > 0 ? "warn" : ""}">Nachzahlung<b>${eur(W.nachzahlung_eur, 2)}</b></span>`];
+  if (W.nachzahlung_tg_eur != null) parts.push(`<span>Stellplatz<b>${W.nachzahlung_tg_eur < 0 ? "+" + eur(-W.nachzahlung_tg_eur, 2) : eur(W.nachzahlung_tg_eur, 2)}</b></span>`);
+  if (tage != null && tage >= 0) parts.push(`<span class="full ${tage <= 10 ? "warn" : ""}">Anfechtung möglich bis ${new Date(W.anfechtung_bis).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}<b>noch ${tage} Tage</b></span>`);
+  if (W.posten_monat) { const top = Object.entries(W.posten_monat).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k} ${eur(v)}`).join(" · "); parts.push(`<span class="full" style="white-space:normal">${top}</span>`); }
+  el.innerHTML = parts.join(""); el.hidden = false;
+}
+ladenWeg(); setInterval(ladenWeg, 30*60e3);
+
 setInterval(uhr, 30e3);
 setInterval(laden, 5*60e3);
 setInterval(() => render(DATA), 10*60e3);
