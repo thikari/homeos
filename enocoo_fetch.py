@@ -57,6 +57,33 @@ def fetch_departures(stops=VRN_STOPS, limit=14):
     out.sort(key=lambda x: x["countdown"])
     return out[:limit]
 
+def parse_start(html):
+    """Alle vier Tabellen der Startseite des neuen Portals (Haushaltsstrom, Heizung, Warmwasser, Kaltwasser) →
+    {"strom": {"today": {...}, "month": {...}, "year": {...}}, "heizung": …, "warmwasser": …, "kaltwasser": …}
+    Strom: kwh, eur, saved_eur, vs_avg_pct; Heizung: kwh, vs_avg_pct; Wasser: m3, vs_avg_pct."""
+    txt = re.sub(r"<[^>]+>", " ", html).replace("&nbsp;", " ").replace("\xa0", " ").replace("&sup1;", "").replace("&sup2;", "").replace("&sup3;", "")
+    txt = re.sub(r"\s+", " ", txt)
+    num = lambda v: float(v.replace(".", "").replace(",", "."))
+    out = {}
+    abschnitte = [("strom", "Haushaltsstrom", "Heizung"), ("heizung", "Heizung", "Warmwasser"), ("warmwasser", "Warmwasser", "Kaltwasser"), ("kaltwasser", "Kaltwasser", None)]
+    for key, start, ende in abschnitte:
+        i = txt.find(start + " Periode")
+        if i < 0: continue
+        j = txt.find(ende + " Periode", i + 1) if ende else -1
+        seg = txt[i: j if j > 0 else i + 1500]
+        rows = {}
+        for m in re.finditer(r"(Heute|Jan|Feb|Mär|Apr|Mai|Jun|Jul|Aug|Sep|Okt|Nov|Dez|20\d\d)\.?\s*:\s*((?:-?[\d.]+,\d+\s+)+)(-?\d+)\s*%", seg):
+            zahlen = [num(z) for z in m[2].split()]
+            per = "today" if m[1] == "Heute" else ("year" if m[1].startswith("20") else "month")
+            if key == "strom" and len(zahlen) >= 3:
+                rows[per] = {"kwh": zahlen[0], "eur": zahlen[1], "saved_eur": zahlen[2], "vs_avg_pct": int(m[3])}
+            elif key == "heizung":
+                rows[per] = {"kwh": zahlen[0], "vs_avg_pct": int(m[3])}
+            else:
+                rows[per] = {"m3": zahlen[0], "vs_avg_pct": int(m[3])}
+        if rows: out[key] = rows
+    return out
+
 def parse_costs(html):
     """Kostentabelle 'Haushaltsstrom' der Portal-Startseite: Periode | kWh | Kosten € | Ersparnis € | Vergleich %.
     Nur die Stromtabelle hat drei Zahlen vor dem Prozentwert, deshalb reicht das Muster ohne Segmentierung."""
@@ -219,9 +246,15 @@ def build(raw, now, events, weather=None, departures=None):
     grundlast_w = round(min(full_hours) * 1000) if full_hours else None
     ampel = raw["ampel"]
     cost = parse_costs(raw["main_html"]) if raw.get("main_html") else None
-    if not strom_days and cost and cost.get("today"):      # neues Portal: Zählerdaten (noch) leer → Tageswert von der Startseite
+    start = parse_start(raw["main_html"]) if raw.get("main_html") else {}
+    if not strom_days and cost and cost.get("today"):      # neues Portal: Zählerdaten (noch) leer → Tageswerte von der Startseite
         strom_days = [cost["today"]["kwh"]]
         if cost.get("month"): month["strom_kwh"] = cost["month"]["kwh"]
+    if month["days_counted"] == 0 and start:
+        for key, mk in (("warmwasser", "warmwasser_m3"), ("kaltwasser", "kaltwasser_m3")):
+            if start.get(key, {}).get("month"): month[mk] = start[key]["month"]["m3"]
+            if start.get(key, {}).get("today"): daily[mk] = [start[key]["today"]["m3"]]
+        if start.get("heizung", {}).get("month"): month["waerme_kwh"] = start["heizung"]["month"]["kwh"]
     if price_now is None and isinstance(ampel.get("currentEnergyprice"), (int, float)):
         price_now = ampel["currentEnergyprice"] / 100
     hinweise = []
@@ -246,10 +279,11 @@ def build(raw, now, events, weather=None, departures=None):
         "yesterday": {"strom_kwh": round(allstrom[-2], 2) if len(allstrom) >= 2 else None, "kaltwasser_m3": round(daily["kaltwasser_m3"][-2], 3) if len(daily["kaltwasser_m3"]) >= 2 else None},
         "week_avg_strom_kwh": round(sum(week) / len(week), 2) if week else None,
         "pv_today_kwh": round(sum(x for x in (pv[1] if len(pv) > 1 else []) if isinstance(x, (int, float))) / 4),
-        "year_strom_kwh": round(sum(raw["jahr"][0]), 1),
+        "year_strom_kwh": round(sum(raw["jahr"][0]), 1) if raw["jahr"][0] else (cost.get("year", {}).get("kwh") if cost else None),
         "events": events,
         "weather": weather,
         "cost": cost,
+        "start": start or None,
         "departures": departures or [],
     }
 
