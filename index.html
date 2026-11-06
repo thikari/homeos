@@ -946,6 +946,7 @@ function render(data) {
   if (alterMin == null) { stale.hidden = false; stale.textContent = "Keine Daten – Fetcher läuft nicht"; }
   else if (errs) { stale.hidden = false; stale.textContent = "Fehler beim Abruf – " + errs; }
   else if (alterMin > 20) { stale.hidden = false; stale.textContent = `Keine neuen Daten seit ${new Date(data.updated).toLocaleString("de-DE", { weekday: "short", hour: "2-digit", minute: "2-digit" })} (${alterMin < 120 ? alterMin + " Minuten" : Math.round(alterMin / 60) + " Stunden"}) – Preis ist veraltet`; }
+  else if (data.hinweise && data.hinweise.length) { stale.hidden = false; stale.textContent = "enocoo-Portal liefert derzeit keine Zählerdaten (seit der Portal-Umstellung) – Preis, Ampel und Tagesverbrauch aktuell, Verlauf/Wasser/PV fehlen"; }
   else stale.hidden = true;
 
   // Footer
