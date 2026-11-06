@@ -82,26 +82,42 @@ def session():
     return op
 
 def login(op):
+    """Anmeldung: neues Portal (/anmelden mit CSRF-Token, seit Nov. 2026); fällt auf das alte SigninForm.php zurück."""
     user, pw = os.environ.get("ENOCOO_USER"), os.environ.get("ENOCOO_PASS")
     if not user or not pw:
         sys.exit("ENOCOO_USER / ENOCOO_PASS fehlen")
+    try:
+        url, html = login_neu(op)
+        if "/anmelden" in url and 'name="passwort"' in html:
+            sys.exit("Login fehlgeschlagen (Portal zeigt wieder die Anmeldeseite) – Benutzername/Passwort prüfen")
+        op.open(BASE + "/start", timeout=30).read()   # Session initialisieren (Meta-Refresh der Anmeldeantwort)
+        return "neu"
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            raise
     op.open(BASE + "/", timeout=30)  # Session-Cookie holen
     data = urllib.parse.urlencode({"user": user, "passwort": pw, "idProject": "1", "idLanguage": "1"}).encode()
     r = op.open(BASE + "/SigninForm.php?mode=ok", data=data, timeout=30)
     html = r.read().decode("utf-8", "ignore")
     if "Abgemeldet" in html or ("Anmeldung" in html and "Benutzername" in html):
         sys.exit("Login fehlgeschlagen (Portal zeigt wieder die Anmeldeseite) – Benutzername/Passwort prüfen")
+    return "alt"
+
+PFADE = {"neu": {"ampel": "/api/ampel", "zaehler": "/api/zaehlerdaten", "pv": "/api/pv-details", "start": "/start"},
+         "alt": {"ampel": "/php/getTrafficLightStatus.php", "zaehler": "/php/getMeterDataWithParam.php", "pv": "/php/getPVDataDetails.php", "start": "/php/mainPage.php"}}
+PORTAL = "neu"
 
 def get_json(op, path, **params):
-    params["cache"] = int(dt.datetime.now().timestamp() * 1000)
-    r = op.open(BASE + path + "?" + urllib.parse.urlencode(params), timeout=30)
+    params = {"cache": int(dt.datetime.now().timestamp() * 1000), **params}
+    req = urllib.request.Request(BASE + path + "?" + urllib.parse.urlencode(params), headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json, text/javascript, */*; q=0.01"})
+    r = op.open(req, timeout=30)
     txt = r.read().decode("utf-8-sig", "ignore").strip().lstrip("\ufeff")
     if "Abgemeldet" in txt or txt.startswith("<"):
         raise RuntimeError("Session abgelaufen bei " + path)
     return json.loads(txt)
 
 def meter(op, mclass, interval, frm):
-    data = get_json(op, "/php/getMeterDataWithParam.php", **{"from": frm, "intVal": interval, "mClass": mclass, "AreaId": AREA})
+    data = get_json(op, PFADE[PORTAL]["zaehler"], **{"from": frm, "intVal": interval, "mClass": mclass, "AreaId": AREA})
     return data
 
 def read_ics(src, days_ahead=60):
@@ -136,9 +152,9 @@ def read_ics(src, days_ahead=60):
 def fetch_raw(op, today):
     first = today.replace(day=1)
     prev = (first - dt.timedelta(days=1)).replace(day=1)
-    raw = {"ampel": get_json(op, "/php/getTrafficLightStatus.php"),
+    raw = {"ampel": get_json(op, PFADE[PORTAL]["ampel"]),
            "l24": meter(op, "Stromverbrauch", "Letzte24h", today.isoformat()),
-           "pv": get_json(op, "/php/getPVDataDetails.php", **{"from": today.isoformat(), "to": (today + dt.timedelta(days=1)).isoformat(), "intVal": "Letzte24h", "diagType": "GesamtverbrauchUndErzeugung"}),
+           "pv": get_json(op, PFADE[PORTAL]["pv"], **{"from": today.isoformat(), "to": (today + dt.timedelta(days=1)).isoformat(), "intVal": "Letzte24h", "diagType": "GesamtverbrauchUndErzeugung"}),
            "m_strom": meter(op, "Stromverbrauch", "Monat", first.isoformat()),
            "m_kalt": meter(op, "Kaltwasser", "Monat", first.isoformat()),
            "m_warm": meter(op, "Warmwasser", "Monat", first.isoformat()),
@@ -147,7 +163,7 @@ def fetch_raw(op, today):
            "w24_kalt": meter(op, "Kaltwasser", "Letzte24h", today.isoformat()),
            "w24_warm": meter(op, "Warmwasser", "Letzte24h", today.isoformat()),
            "jahr": meter(op, "Stromverbrauch", "Jahr", today.replace(month=1, day=1).isoformat())}
-    raw["main_html"] = op.open(BASE + "/php/mainPage.php").read().decode("utf-8", "ignore")
+    raw["main_html"] = op.open(BASE + PFADE[PORTAL]["start"]).read().decode("utf-8", "ignore")
     return raw
 
 def build(raw, now, events, weather=None, departures=None):
@@ -202,7 +218,16 @@ def build(raw, now, events, weather=None, departures=None):
     full_hours = [v for i, v in hour_sums.items() if i < len(kwh15) // 4]
     grundlast_w = round(min(full_hours) * 1000) if full_hours else None
     ampel = raw["ampel"]
+    cost = parse_costs(raw["main_html"]) if raw.get("main_html") else None
+    if not strom_days and cost and cost.get("today"):      # neues Portal: Zählerdaten (noch) leer → Tageswert von der Startseite
+        strom_days = [cost["today"]["kwh"]]
+        if cost.get("month"): month["strom_kwh"] = cost["month"]["kwh"]
+    if price_now is None and isinstance(ampel.get("currentEnergyprice"), (int, float)):
+        price_now = ampel["currentEnergyprice"] / 100
+    hinweise = []
+    if not kwh15: hinweise.append("Viertelstundenwerte fehlen (Portal liefert leere Zählerdaten)")
     return {
+        "hinweise": hinweise,
         "updated": now.isoformat(timespec="minutes"),
         "data_until": today.isoformat(),
         "live": {
@@ -224,7 +249,7 @@ def build(raw, now, events, weather=None, departures=None):
         "year_strom_kwh": round(sum(raw["jahr"][0]), 1),
         "events": events,
         "weather": weather,
-        "cost": parse_costs(raw["main_html"]) if raw.get("main_html") else None,
+        "cost": cost,
         "departures": departures or [],
     }
 
@@ -238,13 +263,14 @@ def main():
     a = ap.parse_args()
     now = dt.datetime.fromisoformat(a.now) if a.now else dt.datetime.now(); today = now.date()
     errors = {}
+    global PORTAL
 
     raw = None
     try:
         if a.raw:
             raw = json.load(open(a.raw, encoding="utf-8"))
         else:
-            op = session(); login(op); raw = fetch_raw(op, today)
+            op = session(); PORTAL = login(op); raw = fetch_raw(op, today)
     except SystemExit as e:
         errors["portal"] = str(e)
     except Exception as e:
