@@ -78,7 +78,7 @@ def session():
     cj = http.cookiejar.CookieJar()
     ctx = ssl.create_default_context()
     op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj), urllib.request.HTTPSHandler(context=ctx))
-    op.addheaders = [("User-Agent", "EnergieTafel/1.0")]
+    op.addheaders = [("User-Agent", os.environ.get("ENOCOO_UA", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")), ("Accept-Language", "de-DE,de;q=0.9")]
     return op
 
 def login(op):
