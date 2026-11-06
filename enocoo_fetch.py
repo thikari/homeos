@@ -294,3 +294,45 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# ---------------- Neues Portal (seit Nov. 2026: /anmelden mit CSRF-Token) – Erkundung ----------------
+def login_neu(op):
+    """Anmeldung am umgebauten Portal: GET /anmelden (csrf_token) → POST /anmelden?mode=ok. Gibt die Antwort-HTML zurück."""
+    user, pw = os.environ.get("ENOCOO_USER"), os.environ.get("ENOCOO_PASS")
+    if not user or not pw:
+        raise RuntimeError("ENOCOO_USER / ENOCOO_PASS fehlen")
+    html = op.open(BASE + "/anmelden", timeout=30).read().decode("utf-8", "ignore")
+    m = re.search(r'name="csrf_token"[^>]*value="([^"]+)"', html) or re.search(r'value="([^"]+)"[^>]*name="csrf_token"', html)
+    data = {"user": user, "passwort": pw}
+    if m: data["csrf_token"] = m.group(1)
+    r = op.open(BASE + "/anmelden?mode=ok", data=urllib.parse.urlencode(data).encode(), timeout=30)
+    return r.geturl(), r.read().decode("utf-8", "ignore")
+
+def erkunden(pfad=None, roh=False):
+    """Diagnose: meldet sich am neuen Portal an und liefert Links, Skripte und URL-artige Strings der Startseite
+    (oder der Seite `pfad`), damit die neuen Daten-Endpunkte gefunden werden können."""
+    op = session()
+    url, html = login_neu(op)
+    out = {"nach_login": url, "titel": (re.search(r"<title>(.*?)</title>", html, re.S) or [None, None])[1]}
+    if pfad:
+        try:
+            r = op.open(BASE + pfad, timeout=30); html = r.read().decode("utf-8-sig", "ignore"); out["pfad"] = pfad; out["pfad_url"] = r.geturl(); out["status"] = r.status
+        except urllib.error.HTTPError as e:
+            out["pfad"] = pfad; out["status"] = e.code; html = e.read().decode("utf-8", "ignore")
+    if roh:
+        out["html"] = html[:20000]; return out
+    out["links"] = sorted(set(re.findall(r'href="([^"#]+)"', html)))[:80]
+    out["skripte"] = sorted(set(re.findall(r'<script[^>]+src="([^"]+)"', html)))
+    out["formulare"] = re.findall(r'<form[^>]*action="([^"]*)"', html)
+    urls = set(re.findall(r'["\'](/[A-Za-z0-9_\-/\.]+(?:\?[^"\']*)?)["\']', html))
+    for src in out["skripte"]:
+        if any(k in src for k in ("jquery", "bootstrap", "chart", "moment")): continue
+        try:
+            js = op.open(src if src.startswith("http") else BASE + src, timeout=30).read().decode("utf-8", "ignore")
+            urls |= set(re.findall(r'["\'](/[A-Za-z0-9_\-/\.]+(?:\?[^"\']*)?)["\']', js))
+            urls |= set(u for u in re.findall(r'(?:url|href|action)\s*[:=]\s*["\']([^"\']+)["\']', js))
+        except Exception as e:
+            out.setdefault("skript_fehler", []).append(f"{src}: {e}")
+    out["urls"] = sorted(u for u in urls if not u.endswith((".css", ".png", ".svg", ".woff", ".woff2", ".ico", ".jpg")))[:150]
+    out["text"] = re.sub(r"\s+", " ", re.sub(r"<script.*?</script>|<style.*?</style>|<[^>]+>", " ", html, flags=re.S))[:1500]
+    return out

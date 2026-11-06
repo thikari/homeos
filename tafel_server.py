@@ -415,6 +415,13 @@ class H(http.server.SimpleHTTPRequestHandler):
                 except Exception as e:
                     st["mongodb"] = f"FEHLER: {type(e).__name__}: {str(e)[:200]}"
             return self._json(st)
+        if rel.startswith("/enocoo/erkunden"):
+            q = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+            try:
+                import enocoo_fetch as EF
+                return self._json(EF.erkunden(pfad=(q.get("pfad") or [None])[0], roh=bool(q.get("roh"))))
+            except Exception as e:
+                return self._json({"fehler": f"{type(e).__name__}: {str(e)[:300]}"})
         if rel == "/logout":
             return self._html("<meta http-equiv=refresh content='0;url=/'>Abgemeldet.", extra=[("Set-Cookie", "tafel=; Max-Age=0; Path=/")])
         if rel in ("/haushalt", "/haushalt/"):
