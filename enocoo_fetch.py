@@ -308,15 +308,19 @@ def login_neu(op):
     r = op.open(BASE + "/anmelden?mode=ok", data=urllib.parse.urlencode(data).encode(), timeout=30)
     return r.geturl(), r.read().decode("utf-8", "ignore")
 
-def erkunden(pfad=None, roh=False):
+def erkunden(pfad=None, roh=False, vorher=None, ajax=False):
     """Diagnose: meldet sich am neuen Portal an und liefert Links, Skripte und URL-artige Strings der Startseite
     (oder der Seite `pfad`), damit die neuen Daten-Endpunkte gefunden werden können."""
     op = session()
     url, html = login_neu(op)
     out = {"nach_login": url, "titel": (re.search(r"<title>(.*?)</title>", html, re.S) or [None, None])[1]}
+    if vorher:
+        try: op.open(BASE + vorher, timeout=30).read()
+        except Exception as e: out["vorher_fehler"] = str(e)[:200]
     if pfad:
         try:
-            r = op.open(BASE + pfad, timeout=30); html = r.read().decode("utf-8-sig", "ignore"); out["pfad"] = pfad; out["pfad_url"] = r.geturl(); out["status"] = r.status
+            req = urllib.request.Request(BASE + pfad, headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json, text/javascript, */*; q=0.01", "Referer": BASE + "/verbrauch"} if ajax else {})
+            r = op.open(req, timeout=30); html = r.read().decode("utf-8-sig", "ignore"); out["pfad"] = pfad; out["pfad_url"] = r.geturl(); out["status"] = r.status
         except urllib.error.HTTPError as e:
             out["pfad"] = pfad; out["status"] = e.code; html = e.read().decode("utf-8", "ignore")
     if roh:

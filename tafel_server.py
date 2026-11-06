@@ -419,7 +419,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             q = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
             try:
                 import enocoo_fetch as EF
-                return self._json(EF.erkunden(pfad=(q.get("pfad") or [None])[0], roh=bool(q.get("roh"))))
+                return self._json(EF.erkunden(pfad=(q.get("pfad") or [None])[0], roh=bool(q.get("roh")), vorher=(q.get("vorher") or [None])[0], ajax=bool(q.get("ajax"))))
             except Exception as e:
                 return self._json({"fehler": f"{type(e).__name__}: {str(e)[:300]}"})
         if rel == "/logout":
