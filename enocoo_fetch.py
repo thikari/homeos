@@ -318,8 +318,6 @@ def main():
     l = out.get("live") or {}
     print(f"{a.out}: {l.get('power_w')} W, {l.get('price_ct')} ct, Ampel {l.get('ampel')}, Fehler: {errors or 'keine'}")
 
-if __name__ == "__main__":
-    main()
 
 # ---------------- Neues Portal (seit Nov. 2026: /anmelden mit CSRF-Token) – Erkundung ----------------
 def login_neu(op):
@@ -366,3 +364,6 @@ def erkunden(pfad=None, roh=False, vorher=None, ajax=False):
     out["urls"] = sorted(u for u in urls if not u.endswith((".css", ".png", ".svg", ".woff", ".woff2", ".ico", ".jpg")))[:150]
     out["text"] = re.sub(r"\s+", " ", re.sub(r"<script.*?</script>|<style.*?</style>|<[^>]+>", " ", html, flags=re.S))[:1500]
     return out
+
+if __name__ == "__main__":
+    main()
