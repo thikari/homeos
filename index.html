@@ -182,6 +182,22 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
 body[data-tab="haushalt"] .seite-haushalt { display: block; }
 body[data-tab="haushalt"] .seite-energie, body[data-tab="haushalt"] .seite-einkauf, body[data-tab="haushalt"] .seite-mobil { display: none; }
 body[data-tab="einkauf"] .seite-haushalt, body[data-tab="mobil"] .seite-haushalt { display: none; }
+.seite-essen { display: none; }
+body[data-tab="essen"] .seite-essen { display: block; }
+body[data-tab="essen"] .seite-energie, body[data-tab="essen"] .seite-einkauf, body[data-tab="essen"] .seite-mobil, body[data-tab="essen"] .seite-haushalt { display: none; }
+/* Essen */
+.es { display: grid; grid-template-columns: 1.25fr 1fr; gap: 2.4em; min-height: calc(100vh - 8em); }
+.es h2 { margin: 0 0 .9em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
+.es h2 span { font-weight: 500; letter-spacing: 0; text-transform: none; font-family: var(--mono); }
+.es .tag { display: grid; grid-template-columns: 4.2em 1fr; gap: 1em; align-items: center; padding: .55em 0; border-bottom: 1px solid var(--line); }
+.es .tag .wt { font-weight: 800; font-size: 1.15em; line-height: 1; } .es .tag .wt small { display: block; font-weight: 500; font-size: .62em; color: var(--muted); font-family: var(--mono); margin-top: .25em; }
+.es .tag .g { font-weight: 700; font-size: 1.25em; letter-spacing: -.01em; } .es .tag .g small { display: block; font-weight: 500; font-size: .62em; color: var(--muted); margin-top: .15em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.es .tag .g.leer { color: var(--line); font-weight: 600; }
+.es .tag.heute { position: relative; } .es .tag.heute::before { content: ""; position: absolute; left: -1em; top: .5em; bottom: .5em; width: 4px; border-radius: 4px; background: var(--good); }
+.es .tag.heute .wt { color: var(--good); } .es .tag.vorbei { opacity: .45; }
+.es .naechste .tag { padding: .35em 0; } .es .naechste .tag .g { font-size: 1em; } .es .naechste .tag .wt { font-size: .95em; }
+.es .hint { margin-top: 1.4em; color: var(--muted); font-size: .85em; line-height: 1.5; }
+.es .zut { margin-top: 1.2em; font-size: .9em; color: var(--muted); line-height: 1.6; } .es .zut b { color: var(--fg); font-weight: 600; }
 /* Haushalt */
 .hh { display: grid; grid-template-columns: 1.1fr 1fr; gap: 2.4em; min-height: calc(100vh - 8em); }
 .hh h2 { margin: 0 0 .9em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; }
@@ -334,6 +350,7 @@ body[data-tab="einkauf"] .seite-haushalt, body[data-tab="mobil"] .seite-haushalt
   .fz .n small .ort, .fz .st small.s2, .fz .st small.akku { display: none; }
   .fz .n, .fz .st { white-space: nowrap; }
   .pendel a { padding: .25em 0; } .pendel .pz { font-size: 1.25em; }
+  .es { gap: 1.6em; } .es .tag { padding: .3em 0; gap: .7em; } .es .tag .g { font-size: 1.05em; } .es .tag .wt { font-size: 1em; } .es .zut { margin-top: .6em; font-size: .8em; } .es .hint { display: none; } .es .naechste .tag { padding: .22em 0; }
   .weg { margin-top: .4em; padding-top: .35em; gap: .1em .6em; } .weg span.full:last-child { display: none; }
   .pendel .warn { font-size: .85em; padding: .2em 0; }
   .liste li { font-size: 1.05em; padding: .3em 0; }
@@ -531,11 +548,31 @@ body[data-tab="einkauf"] .seite-haushalt, body[data-tab="mobil"] .seite-haushalt
   </section>
 </div>
 
+<div class="tafel seite-essen">
+  <header>
+    <div><div class="clock" id="clock5">--:--</div><div class="date" id="date5"></div></div>
+    <div class="eyebrow" id="es-stand"></div>
+  </header>
+  <section class="es">
+    <div>
+      <h2>Essensplan <span id="es-woche"></span></h2>
+      <div id="es-tage"></div>
+      <div class="zut" id="es-zut"></div>
+    </div>
+    <div>
+      <h2>Nächste Woche <span id="es-woche2"></span></h2>
+      <div class="naechste" id="es-tage2"></div>
+      <div class="hint">Handy-Seite …/essen/ · Gericht eintippen, 🛒 legt die Zutaten auf die Einkaufsliste, ✨ füllt freie Tage mit Vorschlägen.</div>
+    </div>
+  </section>
+</div>
+
 <div class="tabs" role="tablist">
   <button role="tab" aria-selected="true" data-tab="energie">Energie</button>
   <button role="tab" aria-selected="false" data-tab="einkauf">Einkauf</button>
   <button role="tab" aria-selected="false" data-tab="mobil">Mobil</button>
   <button role="tab" aria-selected="false" data-tab="haushalt">Haushalt</button>
+  <button role="tab" aria-selected="false" data-tab="essen">Essen</button>
 </div>
 
 <script src="einkauf.js"></script>
@@ -958,8 +995,8 @@ function render(data) {
 function uhr() {
   const n = new Date();
   const t = n.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }), d = n.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" });
-  for (const id of ["clock", "clock2", "clock3", "clock4"]) document.getElementById(id).textContent = t;
-  for (const id of ["date", "date2", "date3", "date4"]) document.getElementById(id).textContent = d;
+  for (const id of ["clock", "clock2", "clock3", "clock4", "clock5"]) document.getElementById(id).textContent = t;
+  for (const id of ["date", "date2", "date3", "date4", "date5"]) document.getElementById(id).textContent = d;
 }
 function setTab(name) {
   document.body.dataset.tab = name;
@@ -967,7 +1004,7 @@ function setTab(name) {
   try { localStorage.setItem("tab", name); } catch (e) {}
 }
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
-(function () { let t = "energie"; try { t = ["#einkauf", "#mobil", "#energie", "#haushalt"].includes(location.hash) ? location.hash.slice(1) : (localStorage.getItem("tab") || "energie"); } catch (e) {} setTab(t); })();
+(function () { let t = "energie"; try { t = ["#einkauf", "#mobil", "#energie", "#haushalt", "#essen"].includes(location.hash) ? location.hash.slice(1) : (localStorage.getItem("tab") || "energie"); } catch (e) {} setTab(t); })();
 
 // ---- Mobil ----
 let MOBIL = null;
@@ -1073,6 +1110,27 @@ function renderHaushalt(D) {
 }
 async function ladenHaushalt() { try { const r = await fetch("haushalt.json", { cache: "no-store" }); if (r.ok) HH = await r.json(); } catch (e) {} renderHaushalt(HH); }
 ladenHaushalt(); setInterval(ladenHaushalt, 60e3);
+// ---- Essen ----
+let ES = null;
+function renderEssen(E) {
+  const stand = document.getElementById("es-stand"); if (!E) { stand.textContent = "Noch kein Essensplan"; return; }
+  const fmt = (iso) => { const d = new Date(iso); return d.getDate() + "." + (d.getMonth() + 1) + "."; };
+  const esc = (t) => String(t || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const row = (t, klein) => `<div class="tag ${t.heute ? "heute" : ""} ${t.vorbei ? "vorbei" : ""}"><div class="wt">${t.wt}<small>${fmt(t.datum)}</small></div>
+    <div class="g ${t.gericht ? "" : "leer"}">${t.gericht ? esc(t.gericht) : "–"}${!klein && t.zutaten && t.zutaten.length ? `<small>${esc(t.zutaten.join(" · "))}</small>` : ""}</div></div>`;
+  document.getElementById("es-woche").textContent = fmt(E.diese.von) + " – " + fmt(E.diese.bis);
+  document.getElementById("es-woche2").textContent = fmt(E.naechste.von) + " – " + fmt(E.naechste.bis);
+  document.getElementById("es-tage").innerHTML = E.diese.tage.map(t => row(t, false)).join("");
+  document.getElementById("es-tage2").innerHTML = E.naechste.tage.map(t => row(t, true)).join("");
+  const heute = E.diese.tage.find(t => t.heute), morgen = E.diese.tage[E.diese.tage.findIndex(t => t.heute) + 1] || E.naechste.tage[0];
+  const z = document.getElementById("es-zut");
+  z.innerHTML = heute && heute.gericht ? `<b>Heute:</b> ${esc(heute.gericht)}${heute.zutaten.length ? " – " + esc(heute.zutaten.join(", ")) : ""}` + (morgen && morgen.gericht ? `<br><b>Morgen:</b> ${esc(morgen.gericht)}` : "") : "Heute ist noch nichts geplant – auf dem Handy unter …/essen/ eintragen.";
+  const offen = E.diese.tage.filter(t => !t.vorbei && !t.gericht).length;
+  stand.textContent = offen ? `${offen} Tag${offen > 1 ? "e" : ""} noch offen` : "Woche komplett geplant";
+}
+async function ladenEssen() { try { const r = await fetch("essen.json", { cache: "no-store" }); if (r.ok) ES = await r.json(); } catch (e) {} renderEssen(ES); }
+ladenEssen(); setInterval(ladenEssen, 60e3);
+
 
 // ---- Einkauf ----
 let EINKAUF = { items: [] };

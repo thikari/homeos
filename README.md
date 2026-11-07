@@ -137,3 +137,10 @@ Fahrzeit Franklin ⇄ Gymnasium Gernsheim hin und zurück mit aktueller Verkehrs
 - `weg.json`: Zahlen aus der WEG-Jahresabrechnung (Hausgeld Ist/Soll/neu, Nachzahlung, Anfechtungsfrist, § 35a). Von Hand pflegen; erscheint unter dem Monatsbudget im Energie-Tab, die Anfechtungsfrist zählt die Tage herunter.
 - Verkehrswarnungen: Stau- und Sperrmeldungen der Autobahn GmbH (`verkehr.autobahn.de`, ohne Schlüssel) für `PENDEL_AUTOBAHNEN` (Standard `A6,A67,A659`), gefiltert auf das Rechteck um Start und Ziel der Pendelstrecke; im Schule-Kasten unter den Fahrzeiten.
 - `MOBIL_ARCHIV_MIN` (Standard 15): Fahrzeugstatus wird nur alle 15 Minuten in `mobil_fahrzeuge` archiviert.
+
+## Essen (Essensplan)
+
+- Tab „Essen" auf der Tafel: diese und nächste Woche, heutiges Gericht mit Zutaten, offene Tage.
+- Handy-Seite `/essen/`: Gericht je Tag eintippen (Vorschläge aus den Rezepten), 🛒 legt die Zutaten eines Tages oder der Restwoche auf die Einkaufsliste (nur, was noch fehlt; Push wie bei „dazu"), ✨ füllt freie Tage – mit KI (MISTRAL_API_KEY) aus der eigenen Rezeptliste, sonst Rotation nach Wochentag (Fr Pizza/Flammkuchen, Wochenende aufwendiger, unter der Woche schnell).
+- Rezepte: ~26 Startrezepte in `essen.py`, eigene auf der Handy-Seite anlegen (Name + Zutaten), Standardrezepte lassen sich ausblenden. Speicher: MongoDB `essensplan` (je ISO-Woche) und `rezepte`, sonst `essen_state.json` neben EINKAUF_STATE.
+- Export `essen.json` nach jeder Änderung und alle 30 min.

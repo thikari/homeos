@@ -15,6 +15,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 _spec = importlib.util.spec_from_file_location("einkauf", os.path.join(HERE, "einkauf.py")); EINKAUF = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(EINKAUF)
 _ll = importlib.util.spec_from_file_location("llm", os.path.join(HERE, "llm.py")); LLM = importlib.util.module_from_spec(_ll); _ll.loader.exec_module(LLM)
 _hh = importlib.util.spec_from_file_location("haushalt", os.path.join(HERE, "haushalt.py")); HAUSHALT = importlib.util.module_from_spec(_hh); _hh.loader.exec_module(HAUSHALT)
+_es = importlib.util.spec_from_file_location("essen", os.path.join(HERE, "essen.py")); ESSEN = importlib.util.module_from_spec(_es); _es.loader.exec_module(ESSEN)
 _wp = importlib.util.spec_from_file_location("webpush", os.path.join(HERE, "webpush.py")); WEBPUSH = importlib.util.module_from_spec(_wp); _wp.loader.exec_module(WEBPUSH)
 LOCK = threading.Lock()
 
@@ -361,6 +362,74 @@ f.onsubmit = async (e) => { e.preventDefault(); const fd = new FormData(f); cons
   const r = await fetch(base+"/haushalt/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}); const j = await r.json(); st.textContent = j.reply || "Gespeichert."; f.hidden = true; load(); };
 load(); setInterval(load, 60000);
 </script></body></html>"""
+ESSEN_PAGE = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Essen"><title>homeOS · Essen</title>
+<link rel="icon" type="image/svg+xml" href="../icon.svg"><link rel="apple-touch-icon" href="../icon-180.png"><link rel="manifest" href="../manifest.webmanifest">
+<style>
+:root{--fg:#0f2a4a;--muted:#5f7691;--line:#d9e3ee;--soft:#edf3f9;--good:#16a35a;--warn:#e3b000;--bad:#2a6fdb;--mono:ui-monospace,Menlo,monospace}
+body{margin:0;font-family:-apple-system,"Manrope",system-ui,sans-serif;color:var(--fg);background:#fff;padding:env(safe-area-inset-top) 16px 40px}
+h1{font-size:1.1rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:1.2rem 0 .4rem;display:flex;justify-content:space-between;align-items:center}
+h1 span{font-family:var(--mono);font-size:.8rem;letter-spacing:0;text-transform:none}
+h2{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bad);margin:1.6rem 0 .5rem}
+.nav{display:flex;gap:.5rem;align-items:center;margin:.4rem 0 .8rem}.nav button{font:inherit;font-weight:700;padding:.5rem .9rem;border:1.5px solid var(--line);border-radius:999px;background:#fff;color:var(--fg)}.nav b{flex:1;text-align:center;font-size:.95rem}
+.tag{display:grid;grid-template-columns:3.2rem 1fr auto;gap:.6rem;align-items:center;padding:.55rem 0;border-bottom:1px solid var(--line)}
+.tag.heute .wt{color:var(--bad)}.tag.vorbei{opacity:.5}
+.wt{font-weight:800;line-height:1.05}.wt small{display:block;font-weight:500;color:var(--muted);font-family:var(--mono);font-size:.75rem}
+.tag input{font:inherit;font-size:1rem;padding:.6rem .7rem;border:1.5px solid var(--line);border-radius:12px;background:#fff;min-width:0;width:100%;box-sizing:border-box}
+.tag input:focus{outline:2px solid var(--bad);border-color:transparent}
+.tag .z{grid-column:2/4;font-size:.78rem;color:var(--muted);margin-top:-.2rem;line-height:1.4}
+.tag button{font:inherit;font-size:1.2rem;width:2.8rem;height:2.8rem;border:1.5px solid var(--line);border-radius:12px;background:#fff}
+.tag button:disabled{opacity:.3}
+.btns{display:flex;gap:.5rem;margin:1rem 0}.btns button{flex:1;font:inherit;font-weight:700;font-size:.95rem;padding:.85rem .5rem;border:1.5px solid var(--line);border-radius:14px;background:#fff;color:var(--fg)}.btns button.p{background:var(--fg);color:#fff;border-color:var(--fg)}
+.st{color:var(--muted);font-size:.9rem;min-height:1.2rem;margin:.3rem 0}
+form{display:grid;gap:.5rem;margin:.6rem 0 1rem;padding:1rem;border:1.5px solid var(--line);border-radius:16px;background:var(--soft)}form[hidden]{display:none}
+form input,form textarea{font:inherit;font-size:1rem;padding:.65rem .8rem;border:1.5px solid var(--line);border-radius:12px;background:#fff}
+.ok{font:inherit;font-weight:700;padding:.8rem;border:0;border-radius:12px;background:var(--good);color:#fff}
+ul{list-style:none;margin:0;padding:0}li{display:flex;justify-content:space-between;gap:.8rem;align-items:center;padding:.55rem 0;border-bottom:1px solid var(--line)}
+li .n{font-weight:600}li .n small{display:block;font-weight:500;color:var(--muted);font-size:.78rem;line-height:1.4}li button{border:0;background:none;color:var(--muted);font-size:1.1rem;padding:.3rem .5rem}
+.hint{color:var(--muted);font-size:.85rem;line-height:1.5}
+</style></head><body>
+<h1>Essensplan <span id="ich"></span></h1>
+<div class="nav"><button id="prev">‹</button><b id="woche">–</b><button id="next">›</button></div>
+<div id="tage"></div>
+<div class="st" id="st"></div>
+<div class="btns"><button class="p" id="alle">🛒 Zutaten der Woche auf die Liste</button><button id="vorschlag">✨ Vorschlag für freie Tage</button></div>
+<p class="hint">Gericht eintippen – passt der Name zu einem Rezept, hängt die Zutatenliste dran. 🛒 beim Tag legt die Zutaten dieses Gerichts auf die Einkaufsliste (nur was noch fehlt).</p>
+<h2>Rezepte</h2>
+<div class="btns"><button id="neu">＋ Rezept anlegen</button></div>
+<form id="rf" hidden><input id="rn" placeholder="Name, z. B. Omas Eintopf"><textarea id="rz" rows="3" placeholder="Zutaten, mit Komma getrennt"></textarea><button class="ok" type="submit">Speichern</button></form>
+<ul id="rezepte"></ul>
+<datalist id="dl"></datalist>
+<script>
+const base = location.pathname.replace(/\/essen\/?$/, "");
+let D = null, OFF = new Date().getDay() === 0 || new Date().getDay() === 6 ? 1 : 0;   // am Wochenende gleich die nächste Woche planen
+const wer = () => { try { return localStorage.getItem("ek-wer") || "Handy"; } catch(e) { return "Handy"; } };
+document.getElementById("ich").textContent = wer();
+const fmt = (iso) => { const d = new Date(iso); return d.getDate() + "." + (d.getMonth()+1) + "."; };
+async function post(path, body) { const r = await fetch(base + "/essen/" + path, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)}); return r.json(); }
+async function load() { const r = await fetch(base + "/essen/plan?off=" + OFF, {cache:"no-store"}); D = await r.json(); render(); }
+function render() {
+  const p = D.plan;
+  document.getElementById("woche").textContent = (OFF === 0 ? "Diese Woche" : OFF === 1 ? "Nächste Woche" : "KW " + p.woche.slice(-2)) + " · " + fmt(p.von) + "–" + fmt(p.bis);
+  document.getElementById("tage").innerHTML = p.tage.map(t => `<div class="tag ${t.heute ? "heute" : ""} ${t.vorbei ? "vorbei" : ""}" data-d="${t.datum}">
+    <div class="wt">${t.wt}<small>${fmt(t.datum)}</small></div>
+    <input list="dl" value="${(t.gericht || "").replace(/"/g, "&quot;")}" placeholder="–" data-d="${t.datum}" enterkeyhint="done">
+    <button title="Zutaten auf die Liste" data-l="${t.datum}" ${t.zutaten.length ? "" : "disabled"}>🛒</button>
+    ${t.zutaten.length ? `<div class="z">${t.zutaten.join(" · ")}</div>` : ""}</div>`).join("");
+  document.getElementById("dl").innerHTML = D.rezepte.map(r => `<option value="${r.name.replace(/"/g, "&quot;")}">`).join("");
+  document.getElementById("rezepte").innerHTML = D.rezepte.map(r => `<li><div class="n">${r.name}<small>${r.zutaten.join(", ") || "ohne Zutaten"}${r.zuletzt ? " · zuletzt " + fmt(r.zuletzt) : ""}</small></div><button data-del="${r.id}" title="Entfernen">✕</button></li>`).join("");
+  document.querySelectorAll("#tage input").forEach(i => { i.onchange = async () => { const j = await post("set", {datum: i.dataset.d, gericht: i.value, wer: wer()}); D = j; render(); }; i.onkeydown = (e) => { if (e.key === "Enter") i.blur(); }; });
+  document.querySelectorAll("#tage button[data-l]").forEach(b => b.onclick = async () => { b.disabled = true; const j = await post("liste", {datum: b.dataset.l, wer: wer()}); st(j.reply); b.disabled = false; });
+  document.querySelectorAll("#rezepte button[data-del]").forEach(b => b.onclick = async () => { if (!confirm("Rezept entfernen?")) return; D = await post("rezept/del", {id: b.dataset.del}); render(); });
+}
+const st = (t) => document.getElementById("st").textContent = t || "";
+document.getElementById("prev").onclick = () => { OFF--; load(); }; document.getElementById("next").onclick = () => { OFF++; load(); };
+document.getElementById("alle").onclick = async (e) => { e.target.disabled = true; st("…"); const j = await post("liste", {woche: D.plan.von, wer: wer()}); st(j.reply); e.target.disabled = false; };
+document.getElementById("vorschlag").onclick = async (e) => { e.target.disabled = true; st(D.ki ? "KI überlegt …" : "…"); const j = await post("vorschlag", {woche: D.plan.von}); D = j; render(); st(j.reply); e.target.disabled = false; };
+document.getElementById("neu").onclick = () => { const f = document.getElementById("rf"); f.hidden = !f.hidden; if (!f.hidden) document.getElementById("rn").focus(); };
+document.getElementById("rf").onsubmit = async (e) => { e.preventDefault(); const n = document.getElementById("rn").value.trim(); if (!n) return; D = await post("rezept", {name: n, zutaten: document.getElementById("rz").value}); document.getElementById("rn").value = ""; document.getElementById("rz").value = ""; document.getElementById("rf").hidden = true; render(); st("Rezept gespeichert."); };
+load();
+</script></body></html>"""
 
 class H(http.server.SimpleHTTPRequestHandler):
     extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".html": "text/html; charset=utf-8", ".json": "application/json; charset=utf-8", ".webmanifest": "application/manifest+json", ".svg": "image/svg+xml", ".png": "image/png"}
@@ -402,7 +471,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         rel = self._rel()
         if rel is None:
             path = self.path.split("?", 1)[0]
-            if PIN and path in ("/", "/index.html", "/einkauf", "/einkauf/", "/haushalt", "/haushalt/", "/login"):
+            if PIN and path in ("/", "/index.html", "/einkauf", "/einkauf/", "/haushalt", "/haushalt/", "/essen", "/essen/", "/login"):
                 return self._html(LOGIN_PAGE.replace("__MSG__", ""))
             self.send_response(404); self.end_headers(); return
         if rel == "/status":
@@ -426,6 +495,13 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._html("<meta http-equiv=refresh content='0;url=/'>Abgemeldet.", extra=[("Set-Cookie", "tafel=; Max-Age=0; Path=/")])
         if rel in ("/haushalt", "/haushalt/"):
             return self._html(HAUSHALT_PAGE)
+        if rel in ("/essen", "/essen/"):
+            return self._html(ESSEN_PAGE)
+        if rel == "/essen/plan":
+            q = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+            try: off = int((q.get("off") or ["0"])[0])
+            except ValueError: off = 0
+            return self._json(self._essen_out(off))
         sub = self._einkauf_path()
         if sub in ("", "/"):
             body = PHONE_PAGE.encode("utf-8")
@@ -438,6 +514,56 @@ class H(http.server.SimpleHTTPRequestHandler):
         if sub == "/push/key":
             return self._json({"key": _push_keys()["public"]})
         super().do_GET()
+    def _essen_out(self, off=0, reply=None):
+        import datetime as _dt
+        d = _dt.date.today() + _dt.timedelta(days=7 * off)
+        out = {"plan": ESSEN.plan(d), "rezepte": [{"id": r["id"], "name": r["name"], "zutaten": r["zutaten"], "zuletzt": r.get("zuletzt")} for r in ESSEN.rezepte()], "ki": bool(LLM.anbieter()), "off": off}
+        if reply is not None: out["reply"] = reply
+        return out
+    def _essen(self, rel):
+        import datetime as _dt
+        n = int(self.headers.get("Content-Length") or 0)
+        if n > 200_000:
+            self.send_response(413); self.end_headers(); return
+        try: form = json.loads(self.rfile.read(n).decode("utf-8", "ignore") or "{}")
+        except Exception: form = {}
+        wer = (form.get("wer") or "Handy").strip()[:20]
+        def off_von(datum):
+            try:
+                d = _dt.date.fromisoformat(datum); heute = _dt.date.today()
+                return ((d - _dt.timedelta(days=d.weekday())) - (heute - _dt.timedelta(days=heute.weekday()))).days // 7
+            except Exception: return 0
+        with LOCK:
+            try:
+                if rel == "/essen/set":
+                    ESSEN.setze(form.get("datum"), form.get("gericht", ""), wer)
+                    out = self._essen_out(off_von(form.get("datum")))
+                elif rel == "/essen/rezept":
+                    ESSEN.rezept_speichern(form.get("name", ""), form.get("zutaten", ""))
+                    out = self._essen_out(0)
+                elif rel == "/essen/rezept/del":
+                    ESSEN.rezept_entfernen(form.get("id", ""))
+                    out = self._essen_out(0)
+                elif rel == "/essen/vorschlag":
+                    d = _dt.date.fromisoformat(form.get("woche")) if form.get("woche") else _dt.date.today()
+                    neu = ESSEN.vorschlag(d)
+                    out = self._essen_out(off_von(d.isoformat()), reply=(f"{len(neu)} Tage gefüllt: " + ", ".join(x["gericht"] for x in neu)) if neu else "Keine freien Tage.")
+                elif rel == "/essen/liste":
+                    zut = ESSEN.zutaten(datum=form.get("datum"), woche=form.get("woche"))
+                    st = EINKAUF.load(); vorhanden = {i["name"].lower() for i in st["items"]}
+                    neu = [z for z in zut if z.lower() not in vorhanden]
+                    if neu:
+                        EINKAUF.apply_message(st, ", ".join(neu), wer); EINKAUF.save(st); EINKAUF.export(st, os.path.join(ROOT, "einkauf.json"))
+                        try: push_event(wer, "dazu", ", ".join(neu))
+                        except Exception as e: print("push essen:", e, flush=True)
+                    out = self._essen_out(0, reply=(f"{len(neu)} Zutaten auf die Liste: " + ", ".join(neu)) if neu else ("Alles schon auf der Liste." if zut else "Keine Zutaten hinterlegt."))
+                else:
+                    self.send_response(404); self.end_headers(); return
+                try: ESSEN.export(os.path.join(ROOT, "essen.json"))
+                except Exception as e: print("essen export:", e, flush=True)
+            except Exception as e:
+                return self._json({"error": f"{type(e).__name__}: {str(e)[:200]}", **self._essen_out(0)})
+        return self._json(out)
     def _haushalt(self, rel):
         n = int(self.headers.get("Content-Length") or 0)
         if n > 8_000_000:
@@ -481,6 +607,8 @@ class H(http.server.SimpleHTTPRequestHandler):
         rel0 = self._rel()
         if rel0 and rel0.startswith("/haushalt/"):
             return self._haushalt(rel0)
+        if rel0 and rel0.startswith("/essen/"):
+            return self._essen(rel0)
         if self.path.split("?", 1)[0] == "/login":
             n = int(self.headers.get("Content-Length") or 0)
             pin = urllib.parse.parse_qs(self.rfile.read(min(n, 4096)).decode("utf-8", "ignore")).get("pin", [""])[0]
