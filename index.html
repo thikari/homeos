@@ -198,6 +198,14 @@ body[data-tab="essen"] .seite-energie, body[data-tab="essen"] .seite-einkauf, bo
 .es .tag.heute .wt { color: var(--good); } .es .tag.vorbei { opacity: .45; }
 .es .naechste .tag { padding: .35em 0; } .es .naechste .tag .g { font-size: 1em; } .es .naechste .tag .wt { font-size: .95em; }
 .es .hint { margin-top: 1.4em; color: var(--muted); font-size: .85em; line-height: 1.5; }
+.es .tag { cursor: pointer; } .es .tag:active { background: var(--soft); }
+.es .tag input { font: inherit; font-weight: 700; font-size: 1.15em; width: 100%; box-sizing: border-box; padding: .25em .5em; border: 1.5px solid var(--bad); border-radius: 10px; background: var(--bg); color: var(--fg); }
+.es .tag input:focus { outline: none; }
+.es-btns { display: flex; flex-wrap: wrap; gap: .5em; align-items: center; margin-top: 1em; }
+.es-btns button { font: inherit; font-size: .85em; font-weight: 700; padding: .6em .9em; border: 1.5px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--fg); cursor: pointer; }
+.es-btns button:first-child { background: var(--fg); color: #fff; border-color: var(--fg); } .es-btns button:disabled { opacity: .5; }
+.es-btns a { font-size: .85em; color: var(--muted); margin-left: auto; }
+.es-st { color: var(--muted); font-size: .85em; min-height: 1.2em; margin-top: .5em; }
 .es .zut { margin-top: 1.2em; font-size: .9em; color: var(--muted); line-height: 1.6; } .es .zut b { color: var(--fg); font-weight: 600; }
 /* Haushalt */
 .hh { display: grid; grid-template-columns: 1.1fr 1fr; gap: 2.4em; min-height: calc(100vh - 8em); }
@@ -351,7 +359,7 @@ body[data-tab="essen"] .seite-energie, body[data-tab="essen"] .seite-einkauf, bo
   .fz .n small .ort, .fz .st small.s2, .fz .st small.akku { display: none; }
   .fz .n, .fz .st { white-space: nowrap; }
   .pendel a { padding: .25em 0; } .pendel .pz { font-size: 1.25em; }
-  .es { gap: 1.6em; } .es .tag { padding: .3em 0; gap: .7em; } .es .tag .g { font-size: 1.05em; } .es .tag .wt { font-size: 1em; } .es .zut { margin-top: .6em; font-size: .8em; } .es .hint { display: none; } .es .naechste .tag { padding: .22em 0; }
+  .es { gap: 1.6em; } .es .tag { padding: .3em 0; gap: .7em; } .es .tag .g { font-size: 1.05em; } .es .tag .wt { font-size: 1em; } .es .zut { margin-top: .6em; font-size: .8em; } .es .hint { display: none; } .es .naechste .tag { padding: .22em 0; } .es-btns { margin-top: .5em; } .es-btns button { font-size: .75em; padding: .4em .7em; } .es .zut { display: none; }
   .weg { margin-top: .4em; padding-top: .35em; gap: .1em .6em; } .weg span.full:last-child { display: none; }
   .pendel .warn { font-size: .85em; padding: .2em 0; }
   .liste li { font-size: 1.05em; padding: .3em 0; }
@@ -393,6 +401,7 @@ body[data-tab="essen"] .seite-energie, body[data-tab="essen"] .seite-einkauf, bo
   .einkauf { grid-template-columns: 1fr; gap: 1.6em; }
   .gruppen { grid-template-columns: 1fr; gap: 0; }
   .liste li { font-size: 1.1em; padding: .6em 0; }
+  .es { grid-template-columns: 1fr; gap: 1.6em; min-height: 0; } .es .hint { display: none; } .es .tag { grid-template-columns: 3.4em 1fr; }
   .tabs { left: 0; right: 0; bottom: 0; justify-content: center; gap: .5em; padding: .6em max(16px, env(safe-area-inset-right, 0px)) calc(.6em + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--line); }
   .tabs button { flex: 1 1 0; min-width: 0; max-width: 12em; padding: .7em .25em; font-size: .7em; letter-spacing: 0; white-space: nowrap; }
   .stale { font-size: .78em; }
@@ -559,11 +568,14 @@ body[data-tab="essen"] .seite-energie, body[data-tab="essen"] .seite-einkauf, bo
       <h2>Essensplan <span id="es-woche"></span></h2>
       <div id="es-tage"></div>
       <div class="zut" id="es-zut"></div>
+      <div class="es-btns"><button id="es-liste">🛒 Zutaten der Woche auf die Liste</button><button id="es-vorschlag">✨ Freie Tage vorschlagen</button><a id="es-rezepte" href="essen/">Rezepte …</a></div>
+      <div class="es-st" id="es-st"></div>
+      <datalist id="es-dl"></datalist>
     </div>
     <div>
       <h2>Nächste Woche <span id="es-woche2"></span></h2>
       <div class="naechste" id="es-tage2"></div>
-      <div class="hint">Handy-Seite …/essen/ · Gericht eintippen, 🛒 legt die Zutaten auf die Einkaufsliste, ✨ füllt freie Tage mit Vorschlägen.</div>
+      <div class="hint">Tag antippen und Gericht eintippen · 🛒 legt die fehlenden Zutaten auf die Einkaufsliste · ✨ füllt freie Tage mit Vorschlägen · Rezepte pflegen unter …/essen/</div>
     </div>
   </section>
 </div>
@@ -1117,20 +1129,43 @@ function renderEssen(E) {
   const stand = document.getElementById("es-stand"); if (!E) { stand.textContent = "Noch kein Essensplan"; return; }
   const fmt = (iso) => { const d = new Date(iso); return d.getDate() + "." + (d.getMonth() + 1) + "."; };
   const esc = (t) => String(t || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const row = (t, klein) => `<div class="tag ${t.heute ? "heute" : ""} ${t.vorbei ? "vorbei" : ""}"><div class="wt">${t.wt}<small>${fmt(t.datum)}</small></div>
+  const row = (t, klein) => `<div class="tag ${t.heute ? "heute" : ""} ${t.vorbei ? "vorbei" : ""}" data-d="${t.datum}" data-g="${esc(t.gericht || "")}"><div class="wt">${t.wt}<small>${fmt(t.datum)}</small></div>
     <div class="g ${t.gericht ? "" : "leer"}">${t.gericht ? esc(t.gericht) : "–"}${!klein && t.zutaten && t.zutaten.length ? `<small>${esc(t.zutaten.join(" · "))}</small>` : ""}</div></div>`;
+  document.getElementById("es-dl").innerHTML = (E.rezepte || []).map(r => `<option value="${esc(r.name)}">`).join("");
   document.getElementById("es-woche").textContent = fmt(E.diese.von) + " – " + fmt(E.diese.bis);
   document.getElementById("es-woche2").textContent = fmt(E.naechste.von) + " – " + fmt(E.naechste.bis);
   document.getElementById("es-tage").innerHTML = E.diese.tage.map(t => row(t, false)).join("");
   document.getElementById("es-tage2").innerHTML = E.naechste.tage.map(t => row(t, true)).join("");
   const heute = E.diese.tage.find(t => t.heute), morgen = E.diese.tage[E.diese.tage.findIndex(t => t.heute) + 1] || E.naechste.tage[0];
   const z = document.getElementById("es-zut");
-  z.innerHTML = heute && heute.gericht ? `<b>Heute:</b> ${esc(heute.gericht)}${heute.zutaten.length ? " – " + esc(heute.zutaten.join(", ")) : ""}` + (morgen && morgen.gericht ? `<br><b>Morgen:</b> ${esc(morgen.gericht)}` : "") : "Heute ist noch nichts geplant – auf dem Handy unter …/essen/ eintragen.";
+  z.innerHTML = heute && heute.gericht ? `<b>Heute:</b> ${esc(heute.gericht)}${heute.zutaten.length ? " – " + esc(heute.zutaten.join(", ")) : ""}` + (morgen && morgen.gericht ? `<br><b>Morgen:</b> ${esc(morgen.gericht)}` : "") : "Heute ist noch nichts geplant – Tag antippen und Gericht eintippen.";
   const offen = E.diese.tage.filter(t => !t.vorbei && !t.gericht).length;
   stand.textContent = offen ? `${offen} Tag${offen > 1 ? "e" : ""} noch offen` : "Woche komplett geplant";
 }
-async function ladenEssen() { try { const r = await fetch("essen.json", { cache: "no-store" }); if (r.ok) ES = await r.json(); } catch (e) {} renderEssen(ES); }
+async function ladenEssen() { if (document.activeElement && document.activeElement.closest && document.activeElement.closest(".es .tag")) return; try { const r = await fetch("essen.json", { cache: "no-store" }); if (r.ok) ES = await r.json(); } catch (e) {} renderEssen(ES); }
 ladenEssen(); setInterval(ladenEssen, 60e3);
+// Essensplan direkt auf der Tafel/dem Handy bearbeiten: Tag antippen → Gericht eintippen
+const esSt = (t) => { document.getElementById("es-st").textContent = t || ""; };
+async function esPost(path, body) {
+  try { const r = await fetch("essen/" + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); if (!r.ok) throw new Error("Server antwortet mit " + r.status); const j = await r.json(); if (j.error) esSt("Fehler: " + j.error); return j; }
+  catch (e) { esSt("Nicht gespeichert – " + e.message); return null; }
+}
+document.querySelector(".seite-essen").addEventListener("click", (ev) => {
+  const tag = ev.target.closest(".es .tag"); if (!tag || tag.querySelector("input")) return;
+  const g = tag.querySelector(".g"); const alt = tag.dataset.g || "";
+  g.innerHTML = `<input list="es-dl" value="${alt.replace(/"/g, "&quot;")}" placeholder="Gericht …" enterkeyhint="done" autocomplete="off">`;
+  const inp = g.querySelector("input"); inp.focus(); inp.select();
+  let fertig = false;
+  const speichern = async () => { if (fertig) return; fertig = true; const neu = inp.value.trim(); if (neu === alt) { renderEssen(ES); return; }
+    esSt("Speichere …"); const j = await esPost("set", { datum: tag.dataset.d, gericht: neu, wer: (window.einkaufWer && window.einkaufWer()) || "Tafel" }); esSt(j ? "" : undefined); await ladenEssen(); };
+  inp.addEventListener("blur", speichern); inp.addEventListener("keydown", (e) => { if (e.key === "Enter") inp.blur(); if (e.key === "Escape") { fertig = true; renderEssen(ES); } });
+});
+// Am Wochenende beziehen sich 🛒 und ✨ auf die nächste Woche
+const esZiel = () => { const we = [0, 6].includes(new Date().getDay()); return ES ? (we ? ES.naechste : ES.diese) : null; };
+function esLabels() { const we = [0, 6].includes(new Date().getDay()); document.getElementById("es-liste").textContent = we ? "🛒 Zutaten nächste Woche auf die Liste" : "🛒 Zutaten der Woche auf die Liste"; document.getElementById("es-vorschlag").textContent = we ? "✨ Nächste Woche vorschlagen" : "✨ Freie Tage vorschlagen"; }
+esLabels();
+document.getElementById("es-liste").addEventListener("click", async (e) => { const z = esZiel(); if (!z) return; e.target.disabled = true; esSt("…"); const j = await esPost("liste", { woche: z.von, wer: (window.einkaufWer && window.einkaufWer()) || "Tafel" }); if (j) esSt(j.reply); e.target.disabled = false; if (typeof ladenEinkauf === "function") ladenEinkauf(); });
+document.getElementById("es-vorschlag").addEventListener("click", async (e) => { const z = esZiel(); if (!z) return; e.target.disabled = true; esSt(ES && ES.ki ? "KI überlegt …" : "…"); const j = await esPost("vorschlag", { woche: z.von }); if (j) esSt(j.reply); e.target.disabled = false; await ladenEssen(); });
 
 
 // ---- Einkauf ----
