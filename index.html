@@ -167,7 +167,8 @@ header { display: flex; justify-content: space-between; align-items: flex-start;
 .stale { position: fixed; left: 0; right: 0; top: 0; padding: .45em 1em; background: var(--warn); color: var(--fg); font-weight: 600; font-size: .85em; text-align: center; z-index: 5; }
 .stale[hidden] { display: none !important; }
 /* Tabs */
-.tabs { box-sizing: border-box; position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: .7em; display: flex; gap: .3em; z-index: 6; }
+.tabs { box-sizing: border-box; position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); bottom: .7em; display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .3em; z-index: 6; pointer-events: none; }
+.tabs button { pointer-events: auto; }
 .tabs button { font: inherit; font-size: .78em; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: .4em 1em; cursor: pointer; }
 .tabs button[aria-selected="true"] { color: #fff; background: var(--fg); border-color: var(--fg); }
 .tabs button:focus-visible { outline: 2px solid var(--bad); outline-offset: 2px; }
@@ -355,7 +356,7 @@ body[data-tab="essen"] .seite-energie, body[data-tab="essen"] .seite-einkauf, bo
   .pendel .warn { font-size: .85em; padding: .2em 0; }
   .liste li { font-size: 1.05em; padding: .3em 0; }
   .ek-bar button { padding: .45em .8em; font-size: .9em; }
-  .tabs { bottom: .4em; }
+  .tabs { bottom: .4em; gap: .25em; } .tabs button { font-size: .7em; padding: .35em .75em; letter-spacing: .04em; }
 }
 /* ---------- Handy ---------- */
 @media (max-width: 700px) {
@@ -393,7 +394,7 @@ body[data-tab="essen"] .seite-energie, body[data-tab="essen"] .seite-einkauf, bo
   .gruppen { grid-template-columns: 1fr; gap: 0; }
   .liste li { font-size: 1.1em; padding: .6em 0; }
   .tabs { left: 0; right: 0; bottom: 0; justify-content: center; gap: .5em; padding: .6em max(16px, env(safe-area-inset-right, 0px)) calc(.6em + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--line); }
-  .tabs button { flex: 1; max-width: 12em; padding: .7em 1em; font-size: .85em; }
+  .tabs button { flex: 1 1 0; min-width: 0; max-width: 12em; padding: .7em .25em; font-size: .7em; letter-spacing: 0; white-space: nowrap; }
   .stale { font-size: .78em; }
 }
 </style>

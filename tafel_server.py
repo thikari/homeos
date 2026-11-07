@@ -406,8 +406,11 @@ let D = null, OFF = new Date().getDay() === 0 || new Date().getDay() === 6 ? 1 :
 const wer = () => { try { return localStorage.getItem("ek-wer") || "Handy"; } catch(e) { return "Handy"; } };
 document.getElementById("ich").textContent = wer();
 const fmt = (iso) => { const d = new Date(iso); return d.getDate() + "." + (d.getMonth()+1) + "."; };
-async function post(path, body) { const r = await fetch(base + "/essen/" + path, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)}); return r.json(); }
-async function load() { const r = await fetch(base + "/essen/plan?off=" + OFF, {cache:"no-store"}); D = await r.json(); render(); }
+async function post(path, body) {
+  try { const r = await fetch(base + "/essen/" + path, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)}); if (!r.ok) throw new Error("Server antwortet mit " + r.status); const j = await r.json(); if (j.error) st("Fehler: " + j.error); return j; }
+  catch (e) { st("Nicht gespeichert – " + e.message + ". Bitte Seite neu laden."); return D; }
+}
+async function load() { try { const r = await fetch(base + "/essen/plan?off=" + OFF, {cache:"no-store"}); if (!r.ok) throw new Error("Server antwortet mit " + r.status); D = await r.json(); render(); } catch (e) { st("Plan nicht geladen – " + e.message); } }
 function render() {
   const p = D.plan;
   document.getElementById("woche").textContent = (OFF === 0 ? "Diese Woche" : OFF === 1 ? "Nächste Woche" : "KW " + p.woche.slice(-2)) + " · " + fmt(p.von) + "–" + fmt(p.bis);
