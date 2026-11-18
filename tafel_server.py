@@ -16,6 +16,7 @@ _spec = importlib.util.spec_from_file_location("einkauf", os.path.join(HERE, "ei
 _ll = importlib.util.spec_from_file_location("llm", os.path.join(HERE, "llm.py")); LLM = importlib.util.module_from_spec(_ll); _ll.loader.exec_module(LLM)
 _hh = importlib.util.spec_from_file_location("haushalt", os.path.join(HERE, "haushalt.py")); HAUSHALT = importlib.util.module_from_spec(_hh); _hh.loader.exec_module(HAUSHALT)
 _es = importlib.util.spec_from_file_location("essen", os.path.join(HERE, "essen.py")); ESSEN = importlib.util.module_from_spec(_es); _es.loader.exec_module(ESSEN)
+_fa = importlib.util.spec_from_file_location("familie", os.path.join(HERE, "familie.py")); FAMILIE = importlib.util.module_from_spec(_fa); _fa.loader.exec_module(FAMILIE)
 _wp = importlib.util.spec_from_file_location("webpush", os.path.join(HERE, "webpush.py")); WEBPUSH = importlib.util.module_from_spec(_wp); _wp.loader.exec_module(WEBPUSH)
 LOCK = threading.Lock()
 
@@ -209,7 +210,53 @@ def push_event(wer, aktion, text):
     if PUSH_TIMER is None:
         PUSH_TIMER = threading.Timer(20, _push_flush); PUSH_TIMER.daemon = True; PUSH_TIMER.start()
 
-def push_sofort(wer, titel, text):
+def _dt_de(iso):
+    try: d = iso.split("-"); return f"{int(d[2])}.{int(d[1])}."
+    except Exception: return iso or ""
+
+def push_an(personen, titel, text, url="familie/"):
+    """Sofort an die Geräte bestimmter Personen (z. B. Erinnerung an die, die abholt)."""
+    def run():
+        try:
+            st = _push_store_load(); keys = _push_keys()
+            for a in st.get("abos", []):
+                if a.get("wer") not in personen:
+                    continue
+                code, txt = WEBPUSH.send(a["sub"], {"title": titel, "body": text, "url": url}, keys, sub=os.environ.get("VAPID_SUBJECT", "mailto:homeos@example.org"), urgency="high")
+                if code in (404, 410):
+                    _push_abo_del(a["endpoint"])
+                elif code >= 300:
+                    print("push", code, txt, flush=True)
+        except Exception as e:
+            print("push an:", e, flush=True)
+    threading.Thread(target=run, daemon=True).start()
+
+GESENDET_FILE = os.path.join(os.path.dirname(os.environ.get("EINKAUF_STATE", os.path.join(HERE, "x"))), "familie_gesendet.json")
+def familie_erinnerungen():
+    """Jede Minute: fällige Erinnerungen aus familie.json (07:00-Übersicht, 30 min vor dem Abholen) an die zuständige Person schicken."""
+    import datetime as _dt
+    while True:
+        try:
+            try: gesendet = set(json.load(open(GESENDET_FILE)))
+            except Exception: gesendet = set()
+            try: E = json.load(open(os.path.join(ROOT, "familie.json"), encoding="utf-8"))
+            except Exception: E = None
+            if E:
+                now = _dt.datetime.now(); heute = now.date().isoformat(); neu = False
+                for er in E.get("erinnerungen", []):
+                    at = _dt.datetime.fromisoformat(er["at"])
+                    if er["key"] in gesendet or at > now or (now - at).total_seconds() > 3600:
+                        continue
+                    push_an([er["an"]], er["titel"], er["text"]); gesendet.add(er["key"]); neu = True
+                if neu or len(gesendet) > 400:
+                    gesendet = {k for k in gesendet if k.split("|")[1] >= heute}
+                    json.dump(sorted(gesendet), open(GESENDET_FILE, "w"))
+        except Exception as e:
+            print("familie erinnerungen:", e, flush=True)
+        time.sleep(60)
+threading.Thread(target=familie_erinnerungen, daemon=True).start()
+
+def push_sofort(wer, titel, text, url=None):
     """Sofort (ohne Bündelung) an alle anderen Geräte – z. B. wenn jemand den Einkauf übernimmt."""
     def run():
         try:
@@ -217,7 +264,7 @@ def push_sofort(wer, titel, text):
             for a in st.get("abos", []):
                 if wer and a.get("wer") and a["wer"] == wer:
                     continue
-                code, txt = WEBPUSH.send(a["sub"], {"title": titel, "body": text, "url": "haushalt/" if "udget" in titel else "einkauf/"}, keys, sub=os.environ.get("VAPID_SUBJECT", "mailto:homeos@example.org"), urgency="high")
+                code, txt = WEBPUSH.send(a["sub"], {"title": titel, "body": text, "url": url or ("haushalt/" if "udget" in titel else "einkauf/")}, keys, sub=os.environ.get("VAPID_SUBJECT", "mailto:homeos@example.org"), urgency="high")
                 if code in (404, 410):
                     _push_abo_del(a["endpoint"])
                 elif code >= 300:
@@ -433,6 +480,115 @@ document.getElementById("neu").onclick = () => { const f = document.getElementBy
 document.getElementById("rf").onsubmit = async (e) => { e.preventDefault(); const n = document.getElementById("rn").value.trim(); if (!n) return; D = await post("rezept", {name: n, zutaten: document.getElementById("rz").value}); document.getElementById("rn").value = ""; document.getElementById("rz").value = ""; document.getElementById("rf").hidden = true; render(); st("Rezept gespeichert."); };
 load();
 </script></body></html>"""
+FAMILIE_PAGE = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Familie"><title>homeOS · Familie</title>
+<link rel="icon" type="image/svg+xml" href="../icon.svg"><link rel="apple-touch-icon" href="../icon-180.png"><link rel="manifest" href="../manifest.webmanifest">
+<style>
+:root{--fg:#0f2a4a;--muted:#5f7691;--line:#d9e3ee;--soft:#edf3f9;--good:#16a35a;--warn:#e3b000;--bad:#2a6fdb;--rot:#d64545;--mono:ui-monospace,Menlo,monospace}
+body{margin:0;font-family:-apple-system,"Manrope",system-ui,sans-serif;color:var(--fg);background:#fff;padding:env(safe-area-inset-top) 16px 40px}
+h1{font-size:1.1rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:1.2rem 0 .4rem;display:flex;justify-content:space-between;align-items:center}h1 span{font-family:var(--mono);font-size:.8rem;letter-spacing:0;text-transform:none}
+h2{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bad);margin:1.6rem 0 .5rem}
+.nav{display:flex;gap:.4rem;margin:.4rem 0 1rem}.nav button{flex:1;font:inherit;font-weight:700;font-size:.85rem;padding:.6rem .3rem;border:1.5px solid var(--line);border-radius:999px;background:#fff;color:var(--muted)}.nav button.on{background:var(--fg);color:#fff;border-color:var(--fg)}
+.seite{display:none}.seite.on{display:block}
+.tag{padding:.6rem 0;border-bottom:1px solid var(--line)}.tag.heute .d{color:var(--good)}.d{font-weight:800;display:flex;justify-content:space-between}.d small{font-weight:500;color:var(--muted);font-family:var(--mono)}
+.kind{display:grid;grid-template-columns:4.2rem 1fr auto;gap:.5rem;align-items:center;padding:.3rem 0}.kind b{font-weight:700}.kind .s{color:var(--muted);font-size:.9rem}.kind .s em{font-style:normal;color:var(--rot);font-weight:600}
+.kind .w{display:flex;gap:.25rem}.kind .w button{font:inherit;font-size:.78rem;font-weight:700;padding:.4rem .55rem;border:1.5px solid var(--line);border-radius:999px;background:#fff;color:var(--muted)}.kind .w button.on{background:var(--fg);color:#fff;border-color:var(--fg)}.kind .w button.zu.on{background:var(--rot);border-color:var(--rot)}
+.mit{font-size:.85rem;color:var(--muted);padding:.2rem 0 0}
+.termin{display:grid;grid-template-columns:3.6rem 1fr;gap:.5rem;padding:.55rem 0;border-bottom:1px solid var(--line)}.termin .z{font-family:var(--mono);font-size:.8rem;color:var(--muted);line-height:1.4}.termin .t{font-weight:700}.termin .w{display:flex;gap:.25rem;margin-top:.35rem;flex-wrap:wrap}.termin .w button{font:inherit;font-size:.78rem;font-weight:700;padding:.35rem .6rem;border:1.5px solid var(--line);border-radius:999px;background:#fff;color:var(--muted)}.termin .w button.on{background:var(--fg);color:#fff;border-color:var(--fg)}.termin .w button.b.on{background:var(--warn);border-color:var(--warn)}
+.termin.offen .t::after{content:" · offen";color:var(--rot);font-weight:600;font-size:.85em}
+.offen li{color:var(--rot);font-size:.9rem;padding:.3rem 0}
+ul{list-style:none;margin:0;padding:0}
+form{display:grid;gap:.5rem;margin:.6rem 0 1rem;padding:1rem;border:1.5px solid var(--line);border-radius:16px;background:var(--soft)}
+input,select,textarea{font:inherit;font-size:1rem;padding:.65rem .8rem;border:1.5px solid var(--line);border-radius:12px;background:#fff;min-width:0}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.ok{font:inherit;font-weight:700;padding:.8rem;border:0;border-radius:12px;background:var(--good);color:#fff}
+.st{color:var(--muted);font-size:.9rem;min-height:1.2rem;margin:.3rem 0}
+.plan{display:grid;grid-template-columns:2.4rem 1fr 1fr;gap:.4rem;align-items:center;padding:.25rem 0}.plan b{font-family:var(--mono);font-weight:600;color:var(--muted)}
+.hint{color:var(--muted);font-size:.85rem;line-height:1.5}
+.btns{display:flex;gap:.5rem;margin:.8rem 0}.btns button{flex:1;font:inherit;font-weight:700;font-size:.9rem;padding:.75rem .5rem;border:1.5px solid var(--line);border-radius:14px;background:#fff;color:var(--fg)}
+textarea{width:100%;box-sizing:border-box}
+</style></head><body>
+<h1>Familie <span id="ich"></span></h1>
+<div class="nav"><button data-s="tage" class="on">Abholen</button><button data-s="termine">Termine</button><button data-s="einst">Einstellungen</button></div>
+<div class="seite on" id="s-tage">
+  <div class="st" id="hinweis"></div>
+  <ul class="offen" id="offen"></ul>
+  <div id="tage"></div>
+  <p class="hint">Antippen, wer abholt – gilt nur für diesen Tag und wird der anderen Person als Push gemeldet. „Zu Hause" = krank/frei. Der Wochenplan steht unter Einstellungen.</p>
+</div>
+<div class="seite" id="s-termine">
+  <div id="termine"></div>
+  <p class="hint">Termine kommen aus dem Familienkalender. Beginnt der Titel mit „T:", „J:" oder „TJ:", ist die Zuständigkeit automatisch gesetzt. 👶 = Kinder brauchen Betreuung.</p>
+</div>
+<div class="seite" id="s-einst">
+  <h2>Wochenplan</h2><div id="plan"></div>
+  <h2>Stundenplan (Unterricht/feste Zeiten, z. B. 7:30–13:10)</h2><div id="sp"></div>
+  <h2>Mitnehmen (je Wochentag, Komma-getrennt)</h2><div id="mit"></div>
+  <h2>Schließtage / Ferien</h2><div id="schliess"></div>
+  <form id="sf"><div class="row"><input type="date" id="s-von" required><input type="date" id="s-bis"></div><div class="row"><select id="s-kind"><option value="">alle Kinder</option></select><input id="s-text" placeholder="z. B. Kita Schließtag"></div><button class="ok">Schließtag speichern</button></form>
+  <h2>Betreuung (Name, Telefon)</h2><textarea id="betr" rows="3" placeholder="Oma Monika 0171…&#10;Familie Müller 0160…"></textarea>
+  <div class="btns"><button class="ok" id="save">Einstellungen speichern</button></div>
+  <div class="st" id="st2"></div>
+</div>
+<div class="st" id="st"></div>
+<script>
+const base = location.pathname.replace(/\/familie\/?$/, "");
+let D = null;
+const wer = () => { try { return localStorage.getItem("ek-wer") || "Handy"; } catch(e) { return "Handy"; } };
+document.getElementById("ich").textContent = wer();
+const st = (t, id) => document.getElementById(id || "st").textContent = t || "";
+const esc = (t) => String(t || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = (iso) => { const d = new Date(iso); return d.getDate() + "." + (d.getMonth() + 1) + "."; };
+async function post(path, body) { try { const r = await fetch(base + "/familie/" + path, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)}); if (!r.ok) throw new Error("Server antwortet mit " + r.status); const j = await r.json(); if (j.error) st("Fehler: " + j.error); return j; } catch (e) { st("Nicht gespeichert – " + e.message); return null; } }
+async function load() { try { const r = await fetch(base + "/familie/daten", {cache:"no-store"}); D = await r.json(); render(); } catch (e) { st("Daten nicht geladen – " + e.message); } }
+document.querySelectorAll(".nav button").forEach(b => b.onclick = () => { document.querySelectorAll(".nav button").forEach(x => x.classList.toggle("on", x === b)); document.querySelectorAll(".seite").forEach(s => s.classList.toggle("on", s.id === "s-" + b.dataset.s)); });
+function render() {
+  const E = D.export, C = D.config, P = C.personen;
+  document.getElementById("hinweis").textContent = E.hinweis || "";
+  document.getElementById("offen").innerHTML = E.offen.slice(0, 6).map(o => `<li>${fmt(o.datum)} ${esc(o.text)}</li>`).join("");
+  document.getElementById("tage").innerHTML = E.tage.slice(0, 10).map(t => `<div class="tag ${t.heute ? "heute" : ""}"><div class="d">${t.wt} <small>${fmt(t.datum)}</small></div>
+    ${t.kinder.map(k => `<div class="kind"><b>${esc(k.kind)}</b><div class="s">${k.status === "zuhause" ? "<em>zu Hause" + (k.text ? " – " + esc(k.text) : "") + "</em>" : k.status === "zu" ? "<em>" + esc(k.text) + "</em>" : k.status === "frei" ? "–" : (k.bis || "") + " " + esc(k.einrichtung || "") + (k.konflikt ? " <em>⚠ " + esc(k.konflikt) + "</em>" : "") + (k.ausnahme && k.text ? " · " + esc(k.text) : "")}</div>
+      <div class="w">${P.map(p => `<button data-d="${t.datum}" data-k="${esc(k.kind)}" data-w="${esc(p)}" class="${k.status === "abholen" && k.wer === p ? "on" : ""}">${esc(p[0])}</button>`).join("")}<button class="zu ${k.status === "zuhause" ? "on" : ""}" data-d="${t.datum}" data-k="${esc(k.kind)}" data-w="zuhause">🏠</button></div></div>`).join("")}
+    ${t.mitnehmen.length ? `<div class="mit">🎒 ${esc(t.mitnehmen.join(" · "))}</div>` : ""}</div>`).join("");
+  document.querySelectorAll("#tage .w button").forEach(b => b.onclick = async () => {
+    const t = E.tage.find(x => x.datum === b.dataset.d); const k = t.kinder.find(x => x.kind === b.dataset.k);
+    const schonSo = (b.dataset.w === "zuhause" && k.status === "zuhause") || (k.status === "abholen" && k.wer === b.dataset.w);
+    let text = null;
+    if (!schonSo) { text = prompt((b.dataset.w === "zuhause" ? k.kind + " bleibt zu Hause – Grund?" : b.dataset.w + " holt " + k.kind + " am " + t.wt + " ab – Grund (optional)?"), "") ; if (text === null) return; }
+    const j = await post("ausnahme", {datum: b.dataset.d, kind: b.dataset.k, wer: schonSo && !k.ausnahme ? "" : (schonSo ? "" : b.dataset.w), text, von: wer()});
+    if (j) { D = j; render(); }
+  });
+  document.getElementById("termine").innerHTML = E.termine.length ? E.termine.map(t => `<div class="termin ${t.wer === "offen" && t.relevant ? "offen" : ""}"><div class="z">${t.wt}<br>${fmt(t.datum)}<br>${t.zeit || ""}</div><div><div class="t">${esc(t.titel)}</div>
+    <div class="w">${["T", "J", "TJ"].map(w => `<button data-key="${esc(t.key)}" data-w="${w}" class="${t.wer === w ? "on" : ""}">${w === "TJ" ? "beide" : esc(C.kuerzel[w] || w)}</button>`).join("")}<button data-key="${esc(t.key)}" data-w="offen" class="${t.wer === "offen" ? "on" : ""}">offen</button><button class="b ${t.betreuung ? "on" : ""}" data-key="${esc(t.key)}" data-b="1" title="Betreuung nötig">👶</button></div></div></div>`).join("") : "<p class='hint'>Keine Termine in den nächsten drei Wochen" + (D.ics ? "" : " – ICS_URL ist nicht gesetzt") + ".</p>";
+  document.querySelectorAll("#termine .w button").forEach(b => b.onclick = async () => { const t = E.termine.find(x => x.key === b.dataset.key); const j = await post("termin", b.dataset.b ? {key: b.dataset.key, betreuung: !t.betreuung, von: wer()} : {key: b.dataset.key, wer: b.dataset.w, von: wer()}); if (j) { D = j; render(); } });
+  // Einstellungen
+  const WT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+  document.getElementById("plan").innerHTML = C.kinder.map((k, i) => `<div class="row" style="margin:.6rem 0 .2rem"><input value="${esc(k.name)}" data-kn="${i}" placeholder="Name"><input value="${esc(k.einrichtung || "")}" data-ke="${i}" placeholder="Einrichtung"></div>` + WT.slice(0, 5).map(w => { const p = (k.plan || {})[w] || {}; return `<div class="plan"><b>${w}</b><input type="time" value="${esc(p.bis || "")}" data-kb="${i}|${w}"><select data-kw="${i}|${w}"><option value="">– niemand –</option>${P.map(x => `<option ${p.wer === x ? "selected" : ""}>${esc(x)}</option>`).join("")}</select></div>`; }).join("")).join("") + `<div class="btns"><button id="kindneu">＋ Kind</button></div>`;
+  document.getElementById("kindneu").onclick = () => { C.kinder.push({name: "", einrichtung: "", plan: {}}); render(); };
+  document.getElementById("sp").innerHTML = P.map(p => `<div style="margin:.4rem 0"><b>${esc(p)}</b>` + WT.map(w => `<div class="plan"><b>${w}</b><input value="${esc(((C.stundenplan || {})[p] || {})[w] || "")}" data-sp="${esc(p)}|${w}" placeholder="z. B. 7:30–13:10" style="grid-column:2/4"></div>`).join("") + `</div>`).join("");
+  document.getElementById("mit").innerHTML = WT.map(w => `<div class="plan"><b>${w}</b><input value="${esc(((C.mitnehmen || {})[w] || []).join(", "))}" data-mit="${w}" placeholder="z. B. Noam: Sportbeutel" style="grid-column:2/4"></div>`).join("");
+  document.getElementById("schliess").innerHTML = "<ul>" + (C.schliesstage || []).map((s, i) => `<li class="kind"><b>${fmt(s.von)}${s.bis && s.bis !== s.von ? "–" + fmt(s.bis) : ""}</b><span class="s">${esc(s.kind || "alle")} · ${esc(s.text || "")}</span><button data-sdel="${i}">✕</button></li>`).join("") + "</ul>";
+  document.querySelectorAll("[data-sdel]").forEach(b => b.onclick = () => { C.schliesstage.splice(+b.dataset.sdel, 1); render(); });
+  document.getElementById("s-kind").innerHTML = `<option value="">alle Kinder</option>` + C.kinder.map(k => `<option>${esc(k.name)}</option>`).join("");
+  document.getElementById("betr").value = (C.betreuung || []).map(b => [b.name, b.tel].filter(Boolean).join(" ")).join("\n");
+}
+document.getElementById("sf").onsubmit = (e) => { e.preventDefault(); const C = D.config; const von = document.getElementById("s-von").value; if (!von) return; (C.schliesstage = C.schliesstage || []).push({von, bis: document.getElementById("s-bis").value || von, kind: document.getElementById("s-kind").value, text: document.getElementById("s-text").value}); document.getElementById("s-von").value = document.getElementById("s-bis").value = document.getElementById("s-text").value = ""; render(); st("Noch nicht gespeichert – unten auf ‚Einstellungen speichern' tippen.", "st2"); };
+document.getElementById("save").onclick = async () => {
+  const C = D.config; const WT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+  document.querySelectorAll("[data-kn]").forEach(i => C.kinder[+i.dataset.kn].name = i.value.trim());
+  document.querySelectorAll("[data-ke]").forEach(i => C.kinder[+i.dataset.ke].einrichtung = i.value.trim());
+  C.kinder.forEach(k => k.plan = k.plan || {});
+  document.querySelectorAll("[data-kb]").forEach(i => { const [n, w] = i.dataset.kb.split("|"); (C.kinder[+n].plan[w] = C.kinder[+n].plan[w] || {}).bis = i.value; });
+  document.querySelectorAll("[data-kw]").forEach(i => { const [n, w] = i.dataset.kw.split("|"); (C.kinder[+n].plan[w] = C.kinder[+n].plan[w] || {}).wer = i.value; });
+  C.kinder.forEach(k => { for (const w of WT) if (k.plan[w] && !k.plan[w].bis && !k.plan[w].wer) delete k.plan[w]; });
+  C.kinder = C.kinder.filter(k => k.name);
+  C.stundenplan = {}; document.querySelectorAll("[data-sp]").forEach(i => { const [p, w] = i.dataset.sp.split("|"); if (i.value.trim()) (C.stundenplan[p] = C.stundenplan[p] || {})[w] = i.value.trim(); });
+  C.mitnehmen = {}; document.querySelectorAll("[data-mit]").forEach(i => C.mitnehmen[i.dataset.mit] = i.value.split(",").map(x => x.trim()).filter(Boolean));
+  C.betreuung = document.getElementById("betr").value.split("\n").map(l => l.trim()).filter(Boolean).map(l => { const m = l.match(/^(.*?)\s*(\+?[\d\s\/-]{6,})?$/); return {name: (m && m[1] || l).trim(), tel: (m && m[2] || "").trim()}; });
+  const j = await post("config", {config: C, von: wer()}); if (j) { D = j; render(); st("Gespeichert.", "st2"); }
+};
+load();
+</script></body></html>"""
 
 class H(http.server.SimpleHTTPRequestHandler):
     extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".html": "text/html; charset=utf-8", ".json": "application/json; charset=utf-8", ".webmanifest": "application/manifest+json", ".svg": "image/svg+xml", ".png": "image/png"}
@@ -474,7 +630,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         rel = self._rel()
         if rel is None:
             path = self.path.split("?", 1)[0]
-            if PIN and path in ("/", "/index.html", "/einkauf", "/einkauf/", "/haushalt", "/haushalt/", "/essen", "/essen/", "/login"):
+            if PIN and path in ("/", "/index.html", "/einkauf", "/einkauf/", "/haushalt", "/haushalt/", "/essen", "/essen/", "/familie", "/familie/", "/login"):
                 return self._html(LOGIN_PAGE.replace("__MSG__", ""))
             self.send_response(404); self.end_headers(); return
         if rel == "/status":
@@ -500,6 +656,11 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._html(HAUSHALT_PAGE)
         if rel in ("/essen", "/essen/"):
             return self._html(ESSEN_PAGE)
+        if rel in ("/familie", "/familie/"):
+            return self._html(FAMILIE_PAGE)
+        if rel == "/familie/daten":
+            with LOCK:
+                return self._json(self._familie_out())
         if rel == "/essen/plan":
             q = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
             try: off = int((q.get("off") or ["0"])[0])
@@ -567,6 +728,47 @@ class H(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": f"{type(e).__name__}: {str(e)[:200]}", **self._essen_out(0)})
         return self._json(out)
+    def _familie_out(self, reply=None):
+        out = {"export": FAMILIE.export(os.path.join(ROOT, "familie.json")), "config": FAMILIE.config(), "ics": bool(os.environ.get("ICS_URL"))}
+        if reply is not None: out["reply"] = reply
+        return out
+    def _familie(self, rel):
+        n = int(self.headers.get("Content-Length") or 0)
+        if n > 200_000:
+            self.send_response(413); self.end_headers(); return
+        try: form = json.loads(self.rfile.read(n).decode("utf-8", "ignore") or "{}")
+        except Exception: form = {}
+        von = (form.get("von") or "Handy").strip()[:20]
+        with LOCK:
+            try:
+                if rel == "/familie/ausnahme":
+                    a = FAMILIE.ausnahme_setzen(form.get("datum"), form.get("kind"), form.get("wer", ""), form.get("bis"), form.get("text"), von)
+                    d = _dt_de(form.get("datum"))
+                    if form.get("wer") == "zuhause": txt = f"{form.get('kind')} bleibt am {d} zu Hause" + (f" ({form.get('text')})" if form.get("text") else "")
+                    elif form.get("wer"): txt = f"{form.get('wer')} holt {form.get('kind')} am {d} ab" + (f" ({form.get('text')})" if form.get("text") else "")
+                    else: txt = f"Ausnahme für {form.get('kind')} am {d} entfernt – es gilt wieder der Wochenplan"
+                    push_sofort(von, f"{von}: Abholen", txt, url="familie/")
+                    out = self._familie_out()
+                elif rel == "/familie/termin":
+                    z = FAMILIE.zuordnung_setzen(form.get("key", ""), form.get("wer"), form.get("betreuung"), form.get("notiz"), von)
+                    titel = (form.get("key") or "").split("|", 1)[-1]
+                    kz = FAMILIE.config().get("kuerzel", {})
+                    if form.get("wer"):
+                        w = form["wer"]; name = "offen" if w == "offen" else " + ".join(kz.get(c, c) for c in w)
+                        push_sofort(von, f"{von}: Termin", f"{titel}: {name}", url="familie/")
+                    elif form.get("betreuung") is not None:
+                        push_sofort(von, f"{von}: Termin", f"{titel}: Betreuung {'nötig' if form.get('betreuung') else 'geklärt'}", url="familie/")
+                    out = self._familie_out()
+                elif rel == "/familie/config":
+                    c = form.get("config") or {}
+                    if not isinstance(c, dict) or not c.get("kinder"): raise ValueError("Konfiguration unvollständig")
+                    FAMILIE.config_speichern(c)
+                    out = self._familie_out(reply="gespeichert")
+                else:
+                    self.send_response(404); self.end_headers(); return
+            except Exception as e:
+                return self._json({"error": f"{type(e).__name__}: {str(e)[:200]}", **self._familie_out()})
+        return self._json(out)
     def _haushalt(self, rel):
         n = int(self.headers.get("Content-Length") or 0)
         if n > 8_000_000:
@@ -612,6 +814,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._haushalt(rel0)
         if rel0 and rel0.startswith("/essen/"):
             return self._essen(rel0)
+        if rel0 and rel0.startswith("/familie/"):
+            return self._familie(rel0)
         if self.path.split("?", 1)[0] == "/login":
             n = int(self.headers.get("Content-Length") or 0)
             pin = urllib.parse.parse_qs(self.rfile.read(min(n, 4096)).decode("utf-8", "ignore")).get("pin", [""])[0]

@@ -83,6 +83,16 @@ def essen_loop():
             print("essen:", e, flush=True)
         time.sleep(1800)
 threading.Thread(target=essen_loop, daemon=True).start()
+
+def familie_loop():
+    while True:
+        try:
+            r = subprocess.run([sys.executable, os.path.join(HERE, "familie.py"), os.path.join(WWW, "familie.json")], capture_output=True, text=True, timeout=90, env=os.environ)
+            if r.returncode != 0: print("familie:", r.stderr[-300:], flush=True)
+        except Exception as e:
+            print("familie:", e, flush=True)
+        time.sleep(600)
+threading.Thread(target=familie_loop, daemon=True).start()
 threading.Thread(target=mobil_loop, daemon=True).start()
 os.environ.setdefault("TAFEL_PORT", os.environ.get("PORT", "8787"))
 os.environ["TAFEL_ROOT"] = WWW

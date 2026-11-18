@@ -144,3 +144,11 @@ Fahrzeit Franklin ⇄ Gymnasium Gernsheim hin und zurück mit aktueller Verkehrs
 - Handy-Seite `/essen/`: Gericht je Tag eintippen (Vorschläge aus den Rezepten), 🛒 legt die Zutaten eines Tages oder der Restwoche auf die Einkaufsliste (nur, was noch fehlt; Push wie bei „dazu"), ✨ füllt freie Tage – mit KI (MISTRAL_API_KEY) aus der eigenen Rezeptliste, sonst Rotation nach Wochentag (Fr Pizza/Flammkuchen, Wochenende aufwendiger, unter der Woche schnell).
 - Rezepte: ~26 Startrezepte in `essen.py`, eigene auf der Handy-Seite anlegen (Name + Zutaten), Standardrezepte lassen sich ausblenden. Speicher: MongoDB `essensplan` (je ISO-Woche) und `rezepte`, sonst `essen_state.json` neben EINKAUF_STATE.
 - Export `essen.json` nach jeder Änderung und alle 30 min.
+
+## Familie (Abholen, Termine, Erinnerungen)
+
+- Tab „Familie" auf der Tafel: Abholen je Kind für die nächsten Tage (Wochenplan + Ausnahmen + Schließtage, Konflikt mit dem Stundenplan markiert), 🎒 Mitnehmen je Wochentag, Termine der nächsten drei Wochen mit Zuständigkeit, Kasten „offen" (niemand eingetragen, Schließtag ohne Betreuung, Termin ohne Zuständigkeit, beide dabei + Betreuung nötig).
+- Handy-Seite `/familie/`: **Abholen** – pro Tag und Kind T / J / 🏠 antippen (Ausnahme nur für diesen Tag, Push an die andere Person); **Termine** – Zuständigkeit T / J / beide / offen und 👶 Betreuung nötig; **Einstellungen** – Wochenplan je Kind (Uhrzeit + wer), Stundenplan je Person (z. B. `7:30–13:10`), Mitnehmen je Wochentag, Schließtage/Ferien, Betreuungspool.
+- Termine kommen aus dem Familienkalender (`ICS_URL`) und `termine.json`; ein Präfix `T:`, `J:` oder `TJ:` im Kalendertitel setzt die Zuständigkeit automatisch.
+- Erinnerungen per Push (Thread im Server, prüft minütlich `familie.json`): 07:00 Tagesübersicht an jede Person mit Aufgaben, 30 min vor dem Abholen an die abholende Person. Gesendete Schlüssel in `familie_gesendet.json`.
+- Speicher: Mongo `config/familie`, `familie_ausnahmen`, `familie_termine` – sonst `familie_state.json`. Export `familie.json` nach jeder Änderung und alle 10 min (`familie.py`).

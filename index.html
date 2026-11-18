@@ -183,6 +183,22 @@ body[data-tab="einkauf"] .seite-mobil { display: none; }
 body[data-tab="haushalt"] .seite-haushalt { display: block; }
 body[data-tab="haushalt"] .seite-energie, body[data-tab="haushalt"] .seite-einkauf, body[data-tab="haushalt"] .seite-mobil { display: none; }
 body[data-tab="einkauf"] .seite-haushalt, body[data-tab="mobil"] .seite-haushalt { display: none; }
+.seite-familie { display: none; }
+body[data-tab="familie"] .seite-familie { display: block; }
+body[data-tab="familie"] .seite-energie, body[data-tab="familie"] .seite-einkauf, body[data-tab="familie"] .seite-mobil, body[data-tab="familie"] .seite-haushalt, body[data-tab="familie"] .seite-essen { display: none; }
+body[data-tab="essen"] .seite-familie, body[data-tab="energie"] .seite-familie, body[data-tab="einkauf"] .seite-familie, body[data-tab="mobil"] .seite-familie, body[data-tab="haushalt"] .seite-familie { display: none; }
+/* Familie */
+.fa { display: grid; grid-template-columns: 1.1fr 1fr; gap: 2.4em; min-height: calc(100vh - 8em); }
+.fa h2 { margin: 0 0 .8em; font-size: .72em; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; } .fa h2 span { font-weight: 500; letter-spacing: 0; text-transform: none; font-family: var(--mono); }
+.fa .tag { padding: .55em 0; border-bottom: 1px solid var(--line); } .fa .tag .d { font-weight: 800; font-size: 1.05em; display: flex; gap: .6em; align-items: baseline; } .fa .tag .d small { font-weight: 500; color: var(--muted); font-family: var(--mono); font-size: .7em; }
+.fa .tag.heute .d { color: var(--good); }
+.fa .kind { display: grid; grid-template-columns: 4em 1fr auto; gap: .8em; align-items: center; padding: .3em 0; font-size: 1.05em; } .fa .kind b { font-weight: 700; } .fa .kind .s { color: var(--muted); font-size: .85em; } .fa .kind .s em { font-style: normal; color: var(--bad); font-weight: 600; }
+.fa .kind .w { font-family: var(--mono); font-weight: 700; padding: .2em .6em; border-radius: 999px; background: var(--soft); color: var(--fg); font-size: .85em; } .fa .kind .w.offen { background: var(--bad); color: #fff; } .fa .kind .w.zu { background: var(--line); color: var(--muted); }
+.fa .mit { font-size: .85em; color: var(--muted); padding: .2em 0 0; }
+.fa .termin { display: grid; grid-template-columns: 3.6em 1fr auto; gap: .8em; align-items: center; padding: .45em 0; border-bottom: 1px solid var(--line); } .fa .termin .z { font-family: var(--mono); font-size: .78em; color: var(--muted); line-height: 1.35; } .fa .termin .t { font-weight: 700; } .fa .termin .t small { display: block; font-weight: 500; color: var(--muted); font-size: .78em; }
+.fa .termin .w { font-family: var(--mono); font-weight: 700; font-size: .85em; padding: .2em .6em; border-radius: 999px; background: var(--soft); } .fa .termin .w.offen { background: var(--bad); color: #fff; }
+.fa .offen { margin: 0 0 1.2em; padding: .8em 1em; border-radius: 14px; background: var(--soft); font-size: .9em; line-height: 1.6; } .fa .offen b { color: var(--bad); } .fa .offen.leer { color: var(--muted); }
+.fa .hint { margin-top: 1.2em; color: var(--muted); font-size: .85em; line-height: 1.5; }
 .seite-essen { display: none; }
 body[data-tab="essen"] .seite-essen { display: block; }
 body[data-tab="essen"] .seite-energie, body[data-tab="essen"] .seite-einkauf, body[data-tab="essen"] .seite-mobil, body[data-tab="essen"] .seite-haushalt { display: none; }
@@ -359,6 +375,7 @@ body[data-tab="essen"] .seite-energie, body[data-tab="essen"] .seite-einkauf, bo
   .fz .n small .ort, .fz .st small.s2, .fz .st small.akku { display: none; }
   .fz .n, .fz .st { white-space: nowrap; }
   .pendel a { padding: .25em 0; } .pendel .pz { font-size: 1.25em; }
+  .fa { gap: 1.4em; } .fa .tag { padding: .3em 0; } .fa .kind { padding: .15em 0; font-size: .95em; } .fa .termin { padding: .25em 0; } .fa .hint { display: none; } .fa .offen { padding: .5em .8em; margin-bottom: .7em; font-size: .82em; }
   .es { gap: 1.6em; } .es .tag { padding: .3em 0; gap: .7em; } .es .tag .g { font-size: 1.05em; } .es .tag .wt { font-size: 1em; } .es .zut { margin-top: .6em; font-size: .8em; } .es .hint { display: none; } .es .naechste .tag { padding: .22em 0; } .es-btns { margin-top: .5em; } .es-btns button { font-size: .75em; padding: .4em .7em; } .es .zut { display: none; }
   .weg { margin-top: .4em; padding-top: .35em; gap: .1em .6em; } .weg span.full:last-child { display: none; }
   .pendel .warn { font-size: .85em; padding: .2em 0; }
@@ -401,7 +418,7 @@ body[data-tab="essen"] .seite-energie, body[data-tab="essen"] .seite-einkauf, bo
   .einkauf { grid-template-columns: 1fr; gap: 1.6em; }
   .gruppen { grid-template-columns: 1fr; gap: 0; }
   .liste li { font-size: 1.1em; padding: .6em 0; }
-  .es { grid-template-columns: 1fr; gap: 1.6em; min-height: 0; } .es .hint { display: none; } .es .tag { grid-template-columns: 3.4em 1fr; }
+  .es { grid-template-columns: 1fr; gap: 1.6em; min-height: 0; } .fa { grid-template-columns: 1fr; gap: 1.6em; min-height: 0; } .fa .hint { display: none; } .es .hint { display: none; } .es .tag { grid-template-columns: 3.4em 1fr; }
   .tabs { left: 0; right: 0; bottom: 0; justify-content: center; gap: .5em; padding: .6em max(16px, env(safe-area-inset-right, 0px)) calc(.6em + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--line); }
   .tabs button { flex: 1 1 0; min-width: 0; max-width: 12em; padding: .7em .25em; font-size: .7em; letter-spacing: 0; white-space: nowrap; }
   .stale { font-size: .78em; }
@@ -580,12 +597,32 @@ body[data-tab="essen"] .seite-energie, body[data-tab="essen"] .seite-einkauf, bo
   </section>
 </div>
 
+<div class="tafel seite-familie">
+  <header>
+    <div><div class="clock" id="clock6">--:--</div><div class="date" id="date6"></div></div>
+    <div class="eyebrow" id="fa-stand"></div>
+  </header>
+  <section class="fa">
+    <div>
+      <h2>Abholen <span id="fa-woche"></span></h2>
+      <div id="fa-tage"></div>
+    </div>
+    <div>
+      <div class="offen" id="fa-offen"></div>
+      <h2>Termine <span>3 Wochen</span></h2>
+      <div id="fa-termine"></div>
+      <div class="hint">Ausnahmen, Zuständigkeiten und Wochenplan auf dem Handy unter …/familie/ · Termin-Titel mit „T:", „J:" oder „TJ:" im Kalender setzen die Zuständigkeit automatisch.</div>
+    </div>
+  </section>
+</div>
+
 <div class="tabs" role="tablist">
   <button role="tab" aria-selected="true" data-tab="energie">Energie</button>
   <button role="tab" aria-selected="false" data-tab="einkauf">Einkauf</button>
   <button role="tab" aria-selected="false" data-tab="mobil">Mobil</button>
   <button role="tab" aria-selected="false" data-tab="haushalt">Haushalt</button>
   <button role="tab" aria-selected="false" data-tab="essen">Essen</button>
+  <button role="tab" aria-selected="false" data-tab="familie">Familie</button>
 </div>
 
 <script src="einkauf.js"></script>
@@ -1008,8 +1045,8 @@ function render(data) {
 function uhr() {
   const n = new Date();
   const t = n.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }), d = n.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" });
-  for (const id of ["clock", "clock2", "clock3", "clock4", "clock5"]) document.getElementById(id).textContent = t;
-  for (const id of ["date", "date2", "date3", "date4", "date5"]) document.getElementById(id).textContent = d;
+  for (const id of ["clock", "clock2", "clock3", "clock4", "clock5", "clock6"]) document.getElementById(id).textContent = t;
+  for (const id of ["date", "date2", "date3", "date4", "date5", "date6"]) document.getElementById(id).textContent = d;
 }
 function setTab(name) {
   document.body.dataset.tab = name;
@@ -1017,7 +1054,7 @@ function setTab(name) {
   try { localStorage.setItem("tab", name); } catch (e) {}
 }
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
-(function () { let t = "energie"; try { t = ["#einkauf", "#mobil", "#energie", "#haushalt", "#essen"].includes(location.hash) ? location.hash.slice(1) : (localStorage.getItem("tab") || "energie"); } catch (e) {} setTab(t); })();
+(function () { let t = "energie"; try { t = ["#einkauf", "#mobil", "#energie", "#haushalt", "#essen", "#familie"].includes(location.hash) ? location.hash.slice(1) : (localStorage.getItem("tab") || "energie"); } catch (e) {} setTab(t); })();
 
 // ---- Mobil ----
 let MOBIL = null;
@@ -1144,6 +1181,28 @@ function renderEssen(E) {
 }
 async function ladenEssen() { if (document.activeElement && document.activeElement.closest && document.activeElement.closest(".es .tag")) return; try { const r = await fetch("essen.json", { cache: "no-store" }); if (r.ok) ES = await r.json(); } catch (e) {} renderEssen(ES); }
 ladenEssen(); setInterval(ladenEssen, 60e3);
+// ---- Familie ----
+function renderFamilie(F) {
+  const stand = document.getElementById("fa-stand"); if (!F) { stand.textContent = "Noch keine Familiendaten"; return; }
+  const fmt = (iso) => { const d = new Date(iso); return d.getDate() + "." + (d.getMonth() + 1) + "."; };
+  const esc = (t) => String(t || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const klein = window.innerHeight < 680;
+  const tage = F.tage.filter(t => t.heute || t.kinder.some(k => k.status !== "frei") || (t.mitnehmen && t.mitnehmen.length)).slice(0, klein ? 4 : 7);
+  document.getElementById("fa-woche").textContent = fmt(tage[0].datum) + " – " + fmt(tage[tage.length - 1].datum);
+  document.getElementById("fa-tage").innerHTML = tage.map(t => `<div class="tag ${t.heute ? "heute" : ""}"><div class="d">${t.heute ? "Heute" : t.wt} <small>${fmt(t.datum)}</small></div>
+    ${t.kinder.filter(k => k.status !== "frei").map(k => `<div class="kind"><b>${esc(k.kind)}</b><div class="s">${k.status === "zuhause" ? "<em>zu Hause" + (k.text ? " – " + esc(k.text) : "") + "</em>" : k.status === "zu" ? "<em>" + esc(k.text) + "</em>" : (k.bis || "") + " " + esc(k.einrichtung || "") + (k.konflikt ? " <em>⚠ " + esc(k.konflikt) + "</em>" : "") + (k.ausnahme && k.text ? " · " + esc(k.text) : "")}</div>
+      <span class="w ${k.status === "offen" ? "offen" : k.status === "abholen" ? "" : "zu"}">${k.status === "abholen" ? esc(k.wer) : k.status === "offen" ? "?" : k.status === "zuhause" ? "🏠" : "zu"}</span></div>`).join("")}
+    ${t.mitnehmen && t.mitnehmen.length ? `<div class="mit">🎒 ${esc(t.mitnehmen.join(" · "))}</div>` : ""}</div>`).join("");
+  const off = F.offen.slice(0, klein ? 3 : 5), oEl = document.getElementById("fa-offen");
+  oEl.className = "offen" + (off.length ? "" : " leer"); oEl.innerHTML = off.length ? off.map(o => `<div><b>${fmt(o.datum)}</b> ${esc(o.text)}</div>`).join("") : "Alles geklärt – nichts offen.";
+  const term = F.termine.filter(t => t.relevant || t.wer !== "offen").slice(0, klein ? 5 : 9);
+  document.getElementById("fa-termine").innerHTML = term.length ? term.map(t => `<div class="termin"><div class="z">${t.wt} ${fmt(t.datum)}<br>${t.zeit || ""}</div><div class="t">${esc(t.titel)}${t.betreuung ? "<small>👶 Betreuung nötig</small>" : ""}</div><span class="w ${t.wer === "offen" ? "offen" : ""}">${t.wer === "offen" ? "?" : t.wer === "TJ" ? "beide" : esc(t.wer_name || t.wer)}</span></div>`).join("") : "<div class='hint'>Keine Termine in den nächsten drei Wochen.</div>";
+  stand.textContent = F.offen.length ? `${F.offen.length} offen` : "Alles geklärt";
+}
+let FA = null;
+async function ladenFamilie() { try { const r = await fetch("familie.json", { cache: "no-store" }); if (r.ok) FA = await r.json(); } catch (e) {} renderFamilie(FA); }
+ladenFamilie(); setInterval(ladenFamilie, 60e3);
+
 // Essensplan direkt auf der Tafel/dem Handy bearbeiten: Tag antippen → Gericht eintippen
 const esSt = (t) => { document.getElementById("es-st").textContent = t || ""; };
 async function esPost(path, body) {
